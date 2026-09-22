@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Env / secrets — never commit real credentials
+.env
+.env.local
+*.pem
+*.key
+
+# Local runtime artifacts
+logs/
+*.log
+benchmark_outputs/
+.benchmarks/
+.cache/
+local_cache/
+
+# Test / tooling
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pyrefly/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Kilo worktrees helper (keep helper ignore, do not commit worktree contents)
+.kilo/worktrees/
