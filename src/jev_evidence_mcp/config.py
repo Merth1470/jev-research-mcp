@@ -100,6 +100,12 @@ class Settings(BaseModel):
     cache_ttl_seconds: float = Field(default=3600.0, ge=0.0, le=86400.0)
     log_level: str = Field(default="INFO")
 
+    # Local dashboard (visualizes pipeline + context cut on localhost)
+    enable_ui: bool = Field(default=True)
+    ui_host: str = Field(default="127.0.0.1")
+    ui_port: int = Field(default=8765, ge=1, le=65535)
+    ui_open_browser: bool = Field(default=False)
+
     @field_validator("log_level")
     @classmethod
     def _validate_log_level(cls, value: str) -> str:
@@ -107,6 +113,13 @@ class Settings(BaseModel):
         if upper not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
             raise ValueError(f"invalid LOG_LEVEL: {value!r}")
         return upper
+
+    @field_validator("ui_host")
+    @classmethod
+    def _validate_ui_host(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("UI_HOST must not be empty.")
+        return value.strip()
 
     def require_typesafe_key(self) -> str:
         if not self.typesafe_api_key:
@@ -161,6 +174,10 @@ def load_settings() -> Settings:
             enable_cache=_get_bool("ENABLE_CACHE", True),
             cache_ttl_seconds=_get_float("CACHE_TTL_SECONDS", 3600.0),
             log_level=_get_env("LOG_LEVEL", default="INFO"),
+            enable_ui=_get_bool("ENABLE_UI", True),
+            ui_host=_get_env("UI_HOST", default="127.0.0.1"),
+            ui_port=_get_int("UI_PORT", 8765),
+            ui_open_browser=_get_bool("UI_OPEN_BROWSER", False),
         )
     except EvidenceError:
         raise

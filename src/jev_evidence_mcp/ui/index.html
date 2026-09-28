@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JEV Evidence MCP — Pipeline Dashboard</title>
+<style>
+  :root { --bg:#f7f8fa; --card:#fff; --ink:#1a2233; --muted:#5b6577;
+    --line:#e3e8f0; --acc:#2563eb; --good:#15803d; --cut:#dc2626; --chip:#eef2ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg); color:var(--ink); }
+  header { background:#0f172a; color:#fff; padding:28px 20px; }
+  header .wrap, main.wrap { max-width:960px; margin:0 auto; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; color:#cbd5e1; font-size:14px; max-width:70ch; }
+  header a { color:#93c5fd; }
+  main.wrap { padding:20px 20px 48px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; margin:14px 0; }
+  .card h2 { margin:0 0 10px; font-size:16px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .stages { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+  .stage { background:var(--chip); border:1px solid var(--line); border-radius:10px;
+    padding:10px; text-align:center; font-size:12px; }
+  .stage b { display:block; font-size:12px; margin-bottom:4px; }
+  .stage span { color:var(--muted); }
+  .arrow { text-align:center; color:var(--muted); font-size:12px; margin:6px 0 0; }
+  form.row { display:flex; gap:8px; flex-wrap:wrap; }
+  input[type=text], select { padding:10px 12px; border:1px solid var(--line);
+    border-radius:8px; font-size:14px; }
+  input[type=text] { flex:1; min-width:220px; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:8px;
+    padding:10px 16px; font-size:14px; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .funnel { display:grid; gap:8px; margin-top:10px; }
+  .frow { display:grid; grid-template-columns:170px 1fr 90px; gap:10px; align-items:center;
+    font-size:13px; }
+  .bar { background:#eef2f7; border-radius:6px; height:18px; position:relative; overflow:hidden; }
+  .bar > i { display:block; height:100%; background:var(--acc); border-radius:6px; }
+  .bar.cut > i { background:var(--cut); }
+  .bar.good > i { background:var(--good); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px;
+    margin-top:10px; }
+  .stat { border:1px solid var(--line); border-radius:10px; padding:10px; text-align:center; }
+  .stat b { display:block; font-size:20px; }
+  .stat span { font-size:12px; color:var(--muted); }
+  .pill { display:inline-block; font-size:11px; padding:2px 8px; border-radius:99px;
+    background:#eef2ff; border:1px solid var(--line); margin-right:6px; }
+  .pill.live { background:#dcfce7; } .pill.demo { background:#fef9c3; }
+  pre.src { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:10px;
+    overflow:auto; font-size:12px; max-height:220px; }
+  details { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:8px 0;
+    background:#fff; }
+  summary { cursor:pointer; font-size:14px; }
+  code { background:#eef2f7; padding:1px 5px; border-radius:5px; font-size:12px; }
+  footer { color:var(--muted); font-size:12px; text-align:center; padding:18px; }
+  @media (max-width:720px){ .stages{grid-template-columns:repeat(2,1fr);} .frow{grid-template-columns:110px 1fr 70px;} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>JEV Evidence MCP — what gets into the agent</h1>
+  <p>Search &rarr; JEV result filter &rarr; fetch &rarr; parse &rarr; JEV block filter &rarr; assemble.
+  This page visualizes how much context is <b>cut</b> before it reaches the coding agent.
+  Token counts are the documented <code>chars/4</code> approximation.</p>
+</div></header>
+<main class="wrap">
+
+  <div class="card">
+    <h2>How it works</h2>
+    <div class="stages">
+      <div class="stage"><b>1. Search</b><span>Brave / fake candidates</span></div>
+      <div class="stage"><b>2. JEV results</b><span>keep relevant AND useful</span></div>
+      <div class="stage"><b>3. Fetch</b><span>only survivors, bounded</span></div>
+      <div class="stage"><b>4. Parse</b><span>HTML &rarr; blocks</span></div>
+      <div class="stage"><b>5. JEV blocks</b><span>keep relevant AND actionable</span></div>
+      <div class="stage"><b>6. Assemble</b><span>dedup + token budget</span></div>
+    </div>
+    <p class="muted" id="statusLine">Loading server status…</p>
+  </div>
+
+  <div class="card">
+    <h2>Offline demo — baseline vs JEV (no keys needed)</h2>
+    <p class="muted">Bundled fixtures: 12 pages, every 3rd one is marketing noise. JEV keeps the 8 relevant.</p>
+    <div class="funnel" id="demoFunnel"></div>
+    <div class="stats" id="demoStats"></div>
+  </div>
+
+  <div class="card">
+    <h2>Try it live</h2>
+    <form class="row" id="qform">
+      <input type="text" id="q" value="How do I bound concurrent HTTP fetches with retries in Python?" maxlength="2000" />
+      <select id="mode"><option value="jev">jev</option><option value="baseline">baseline</option></select>
+      <select id="ms"><option value="6">6 sources</option><option value="4">4 sources</option><option value="10">10 sources</option></select>
+      <button id="go" type="submit">Run</button>
+    </form>
+    <p class="muted">Without <code>TYPESAFE_API_KEY</code> / <code>BRAVE_API_KEY</code> the UI runs the offline demo stack and labels it <span class="pill demo">demo</span>. With keys it runs your live pipeline and labels it <span class="pill live">live</span>.</p>
+    <div id="out"></div>
+  </div>
+
+  <div class="card">
+    <h2>Reading the funnel</h2>
+    <p class="muted">Blue = kept, red = cut. “Blocks seen → selected” is the second JEV pass.
+    “Tokens” is what the agent would otherwise swallow (baseline) vs what it actually gets (JEV).
+    One failed page never fails the request — it shows up as a diagnostic.</p>
+  </div>
+</main>
+<footer>JEV decides, code disposes · local-only dashboard · no telemetry</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function funnelRows(el, pairs) {
+  const max = Math.max(1, ...pairs.map(p => p[1]));
+  el.innerHTML = pairs.map(([label, val, cls]) =>
+    `<div class="frow"><div>${label}</div><div class="bar ${cls||''}"><i style="width:${Math.round(100*val/max)}%"></i></div><div><b>${val}</b></div></div>`
+  ).join('');
+}
+function statCards(el, items) {
+  el.innerHTML = items.map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
+}
+function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/status'); const s = await r.json();
+    $('statusLine').innerHTML =
+      `Server: <span class="pill ${s.demo_mode ? 'demo' : 'live'}">${s.demo_mode ? 'demo' : 'live'}</span>` +
+      ` search=<code>${esc(s.search_provider)}</code> JEV keys=${s.jev_configured ? 'yes' : 'no'}` +
+      ` search keys=${s.search_configured ? 'yes' : 'no'} thresholds=${s.result_threshold}/${s.block_threshold}`;
+  } catch { $('statusLine').textContent = 'Status unavailable (is the dashboard running?)'; }
+}
+async function loadDemo() {
+  try {
+    const r = await fetch('/api/demo'); const d = await r.json();
+    const b = d.baseline, j = d.jev;
+    funnelRows($('demoFunnel'), [
+      ['Baseline fetched', b.fetched, ''], ['JEV fetched', j.fetched, 'good'],
+      ['Baseline blocks', b.blocks_seen, ''], ['JEV blocks kept', j.blocks_selected, 'good'],
+      ['Baseline tokens ≈', b.estimated_input_tokens, 'cut'], ['JEV tokens ≈', j.estimated_input_tokens, 'good'],
+    ]);
+    statCards($('demoStats'), [
+      [`−${Math.round(100*d.fetch_reduction)}%`, 'pages not fetched'],
+      [`−${Math.round(100*d.context_reduction)}%`, 'tokens not sent'],
+      [j.jev_requests, 'JEV calls'], [j.evidence_items, 'evidence items'],
+    ]);
+  } catch { $('demoFunnel').innerHTML = '<p class="muted">Demo unavailable.</p>'; }
+}
+
+$('qform').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('go'); btn.disabled = true; btn.textContent = 'Running…';
+  $('out').innerHTML = '<p class="muted">Running pipeline…</p>';
+  try {
+    const body = { query: $('q').value, mode: $('mode').value, max_sources: parseInt($('ms').value, 10) };
+    const r = await fetch('/api/research', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (d.error) { $('out').innerHTML = `<p><b>Error (${esc(d.error.code||'error')}):</b> ${esc(d.error.message||'failed')}</p>`; return; }
+    const m = d.metadata;
+    const cut = (m.blocks_seen||0) - (m.blocks_selected||0);
+    let html = `<p><span class="pill ${d.demo_mode?'demo':'live'}">${d.demo_mode?'demo':'live'}</span>` +
+      `<span class="muted">mode=${esc(m.mode)} latency=${m.latency_ms}ms JEV calls=${m.jev_requests}</span></p><div class="funnel">`;
+    funnelRows($('out'), []); // clear
+    html += `</div><div class="funnel" id="rf"></div><div class="stats" id="rs"></div><div id="srcs"></div>`;
+    $('out').innerHTML = html;
+    funnelRows($('rf'), [
+      ['Search results', m.search_results, ''], ['Results kept', m.selected_results, 'good'],
+      ['Docs fetched', m.documents_fetched, ''], ['Docs failed', m.documents_failed, 'cut'],
+      ['Blocks seen', m.blocks_seen, ''], ['Blocks kept', m.blocks_selected, 'good'],
+      ['Blocks cut', cut, 'cut'], ['Evidence items', m.evidence_items, 'good'],
+      ['Tokens to agent ≈', m.estimated_input_tokens, 'good'],
+    ]);
+    const cmp = d.comparison;
+    const items = [[m.documents_fetched, 'fetched'], [m.blocks_selected + '/' + m.blocks_seen, 'blocks kept/seen'],
+      ['≈' + m.estimated_input_tokens, 'tokens to agent'], [m.latency_ms + 'ms', 'latency']];
+    if (cmp) items.push([`−${Math.round(100*cmp.context_reduction)}%`, 'vs baseline tokens']);
+    statCards($('rs'), items);
+    $('srcs').innerHTML = (d.sources||[]).map(s =>
+      `<details><summary><b>${esc(s.title||s.url)}</b> <span class="muted">${esc(s.domain)} · ${(s.evidence||[]).length} blocks</span></summary>` +
+      `<p class="muted">${esc(s.url)}</p>` +
+      (s.evidence||[]).slice(0,6).map(ev =>
+        `<p><span class="pill">${esc(ev.type||'text')} ${ev.score!=null?'· '+ev.score:''}</span>` +
+        (ev.parent_heading?`<span class="muted">§ ${esc(ev.parent_heading)}</span>`:'') +
+        `</p><pre class="src">${esc((ev.text||'').slice(0,900))}</pre>`).join('') +
+      `</details>`).join('') || '<p class="muted">No sources kept — thresholds may be too strict.</p>';
+  } catch (err) { $('out').innerHTML = `<p>Request failed: ${esc(String(err))}</p>`; }
+  finally { btn.disabled = false; btn.textContent = 'Run'; }
+});
+
+loadStatus(); loadDemo();
+</script>
+</body>
+</html>

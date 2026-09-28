@@ -189,6 +189,26 @@ Returns `{ query, sources: [{ title, url, domain, evidence: [{ text, type, langu
 or `{ query, sources: [], metadata: {}, error: { code, message } }` on failure.
 Works with MCP Python SDK v1 (`FastMCP`) and v2 (`MCPServer`).
 
+### 7a. Local dashboard (visualize the context cut)
+
+`python -m jev_evidence_mcp` also starts a localhost dashboard (stdout stays
+clean for MCP; the URL is printed to stderr):
+
+```bash
+python -m jev_evidence_mcp                # MCP stdio + dashboard at http://localhost:8765
+python -m jev_evidence_mcp --ui-only      # dashboard only (preview the UI)
+python -m jev_evidence_mcp --no-ui        # MCP stdio only
+python -m jev_evidence_mcp --ui-port 8899 --open-browser
+```
+
+The page shows the 6 pipeline stages, an offline baseline-vs-JEV demo
+(no keys needed), a live query box, and a kept-vs-cut funnel
+(search → selected → fetched → blocks seen/kept → evidence → tokens).
+Without `TYPESAFE_API_KEY`/`BRAVE_API_KEY` it runs the bundled demo stack
+and labels results `demo`; with keys it runs your live pipeline (`live`).
+Config: `ENABLE_UI`, `UI_HOST`, `UI_PORT`, `UI_OPEN_BROWSER`. No new
+dependencies (stdlib HTTP server + one static HTML file).
+
 ## 8. Search provider configuration
 
 V1 ships one concrete provider: **Brave Search API**
