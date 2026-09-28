@@ -100,7 +100,9 @@ def create_mcp_server(
 ) -> Any:
     settings = settings or load_settings()
     configure_logging(settings.log_level)
-    pipe = pipeline or build_pipeline(settings)
+    # NOTE: the pipeline is built lazily per request (not here) so the server
+    # starts even when keys are missing; misconfiguration is then reported as
+    # a structured tool error instead of a startup crash.
     server_cls = _load_mcp_class()
     mcp = server_cls("jev-evidence")
 
@@ -130,6 +132,7 @@ def create_mcp_server(
                 },
             }
         try:
+            pipe = pipeline or build_pipeline(settings)
             result = await pipe.run(
                 query,
                 max_sources=max_sources,

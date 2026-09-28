@@ -209,6 +209,12 @@ and labels results `demo`; with keys it runs your live pipeline (`live`).
 Config: `ENABLE_UI`, `UI_HOST`, `UI_PORT`, `UI_OPEN_BROWSER`. No new
 dependencies (stdlib HTTP server + one static HTML file).
 
+The server starts even with missing keys: misconfiguration comes back as a
+structured tool error, not a startup crash. The dashboard's separate
+**Configuration** section lets you set the provider, API keys, and tuning
+knobs from the browser — it applies immediately and saves to `.env`.
+Keys are never displayed back (blank = keep).
+
 ## 8. Search provider configuration
 
 V1 ships one concrete provider: **Brave Search API**

@@ -3,17 +3,65 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
+from contextlib import contextmanager
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from jev_evidence_mcp.config import Settings, load_settings
 from jev_evidence_mcp.dashboard import create_server
+
+_CONFIG_ENV_VARS = (
+    "SEARCH_PROVIDER",
+    "BRAVE_API_KEY",
+    "SEARCH_API_KEY",
+    "TYPESAFE_API_KEY",
+    "JEV_API_KEY",
+    "TYPESAFE_MODEL",
+    "MAX_SEARCH_RESULTS",
+    "MAX_SOURCES",
+    "MAX_EVIDENCE_TOKENS",
+    "MAX_CONCURRENT_FETCHES",
+    "RESULT_RELEVANT_THRESHOLD",
+    "RESULT_USEFUL_THRESHOLD",
+    "RESULT_UNCERTAIN_MARGIN",
+    "BLOCK_RELEVANT_THRESHOLD",
+    "BLOCK_ACTIONABLE_THRESHOLD",
+    "BLOCK_UNCERTAIN_MARGIN",
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_env() -> Iterator[None]:
+    saved = {key: os.environ.get(key) for key in _CONFIG_ENV_VARS}
+    try:
+        yield
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+@contextmanager
+def _serve(settings: Settings, env_path: Path) -> Iterator[ThreadingHTTPServer]:
+    srv = create_server("127.0.0.1", 0, settings, env_path=env_path)
+    thread = threading.Thread(target=srv.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield srv
+    finally:
+        srv.shutdown()
+        thread.join(timeout=5)
+        srv.server_close()
 
 
 def _url(server: ThreadingHTTPServer, path: str) -> str:
@@ -39,16 +87,10 @@ def _post(server: ThreadingHTTPServer, path: str, payload: dict[str, Any]) -> tu
 
 
 @pytest.fixture
-def server() -> Iterator[ThreadingHTTPServer]:
-    srv = create_server("127.0.0.1", 0, Settings(search_provider="fake"))  # type: ignore[arg-type]
-    thread = threading.Thread(target=srv.serve_forever, daemon=True)
-    thread.start()
-    try:
+def server(tmp_path: Path) -> Iterator[ThreadingHTTPServer]:
+    settings = Settings(search_provider="fake")  # type: ignore[arg-type]
+    with _serve(settings, tmp_path / "test.env") as srv:
         yield srv
-    finally:
-        srv.shutdown()
-        thread.join(timeout=5)
-        srv.server_close()
 
 
 def test_ui_defaults(clean_env: None) -> None:
@@ -108,3 +150,69 @@ def test_research_rejects_bad_mode(server: ThreadingHTTPServer) -> None:
     status, data = _post(server, "/api/research", {"query": "q", "mode": "telepathy"})
     assert status == 400
     assert data["error"]["code"] == "validation_error"
+
+
+def test_config_get_hides_secret_values(tmp_path: Path) -> None:
+    settings = Settings(
+        search_provider="fake",  # type: ignore[arg-type]
+        brave_api_key="super-secret-brave",
+        typesafe_api_key="super-secret-jev",
+    )
+    with _serve(settings, tmp_path / "test.env") as srv:
+        status, body = _get(srv, "/api/config")
+        assert status == 200
+        assert "super-secret-brave" not in body
+        assert "super-secret-jev" not in body
+        data = json.loads(body)
+        assert "brave_api_key" not in data
+        assert "typesafe_api_key" not in data
+        assert data["brave_configured"] is True
+        assert data["typesafe_configured"] is True
+        assert data["max_sources"] == 10
+
+
+def test_config_post_updates_and_persists(tmp_path: Path) -> None:
+    env_file = tmp_path / "test.env"
+    settings = Settings(search_provider="fake")  # type: ignore[arg-type]
+    with _serve(settings, env_file) as srv:
+        status, data = _post(
+            srv,
+            "/api/config",
+            {"max_sources": 4, "result_relevant_threshold": 0.7, "typesafe_api_key": "k-test"},
+        )
+        assert status == 200
+        assert data["ok"] is True
+        assert data["persisted"] is True
+        assert data["config"]["max_sources"] == 4
+        assert data["config"]["result_relevant_threshold"] == 0.7
+        assert data["config"]["typesafe_configured"] is True
+        # Live in-memory + process env, and persisted to the .env file.
+        assert os.environ.get("MAX_SOURCES") == "4"
+        assert os.environ.get("TYPESAFE_API_KEY") == "k-test"
+        saved = env_file.read_text(encoding="utf-8")
+        assert "MAX_SOURCES=4" in saved
+        assert "TYPESAFE_API_KEY=k-test" in saved
+        assert "k-test" not in json.dumps(data["config"])
+
+
+def test_config_post_rejects_invalid_unchanged(tmp_path: Path) -> None:
+    settings = Settings(search_provider="fake")  # type: ignore[arg-type]
+    with _serve(settings, tmp_path / "test.env") as srv:
+        status, data = _post(srv, "/api/config", {"result_relevant_threshold": 5})
+        assert status == 400
+        assert data["error"]["code"] == "configuration_error"
+        _, body = _get(srv, "/api/config")
+        assert json.loads(body)["result_relevant_threshold"] == 0.5
+
+
+def test_config_post_blank_keys_keep_existing(tmp_path: Path) -> None:
+    settings = Settings(
+        search_provider="fake",  # type: ignore[arg-type]
+        brave_api_key="keep-me",
+    )
+    with _serve(settings, tmp_path / "test.env") as srv:
+        status, data = _post(srv, "/api/config", {"max_sources": 7, "brave_api_key": "   "})
+        assert status == 200
+        assert data["config"]["max_sources"] == 7
+        assert data["config"]["brave_configured"] is True
+        assert os.environ.get("BRAVE_API_KEY") is None  # untouched, not wiped

@@ -27,9 +27,13 @@
   .stage span { color:var(--muted); }
   .arrow { text-align:center; color:var(--muted); font-size:12px; margin:6px 0 0; }
   form.row { display:flex; gap:8px; flex-wrap:wrap; }
-  input[type=text], select { padding:10px 12px; border:1px solid var(--line);
+  input[type=text], input[type=password], input[type=number], select {
+    padding:10px 12px; border:1px solid var(--line);
     border-radius:8px; font-size:14px; }
   input[type=text] { flex:1; min-width:220px; }
+  .cfg { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin-top:10px; }
+  .cfg label { display:grid; gap:4px; font-size:12px; color:var(--muted); }
+  .cfg input, .cfg select { width:100%; }
   button { background:var(--acc); color:#fff; border:0; border-radius:8px;
     padding:10px 16px; font-size:14px; cursor:pointer; }
   button:disabled { opacity:.6; cursor:wait; }
@@ -97,6 +101,35 @@
     </form>
     <p class="muted">Without <code>TYPESAFE_API_KEY</code> / <code>BRAVE_API_KEY</code> the UI runs the offline demo stack and labels it <span class="pill demo">demo</span>. With keys it runs your live pipeline and labels it <span class="pill live">live</span>.</p>
     <div id="out"></div>
+  </div>
+
+  <div class="card">
+    <h2>Configuration</h2>
+    <p class="muted">Provider, keys, and tuning knobs. Applies immediately and is saved to
+    <code>.env</code> for next start. Keys are never displayed back — leave a key blank to keep it.
+    <span id="cfgState" class="muted"></span></p>
+    <form id="cfgform">
+      <div class="cfg">
+        <label>Search provider
+          <select id="cfgProvider"><option value="brave">brave</option><option value="fake">fake (offline)</option></select>
+        </label>
+        <label>Brave API key <input type="password" id="cfgBraveKey" autocomplete="off" /></label>
+        <label>TypeSafe (JEV) API key <input type="password" id="cfgJevKey" autocomplete="off" /></label>
+        <label>TypeSafe model <input type="text" id="cfgModel" /></label>
+        <label>Max search results <input type="number" id="cfgMaxSearch" min="1" max="50" /></label>
+        <label>Max sources <input type="number" id="cfgMaxSources" min="1" max="20" /></label>
+        <label>Max evidence tokens <input type="number" id="cfgMaxTokens" min="100" max="100000" /></label>
+        <label>Max concurrent fetches <input type="number" id="cfgConcurrency" min="1" max="20" /></label>
+        <label>Result: relevant ≥ <input type="number" id="cfgResRel" min="0" max="1" step="0.05" /></label>
+        <label>Result: useful ≥ <input type="number" id="cfgResUse" min="0" max="1" step="0.05" /></label>
+        <label>Result: uncertain margin <input type="number" id="cfgResMargin" min="0" max="0.5" step="0.05" /></label>
+        <label>Block: relevant ≥ <input type="number" id="cfgBlkRel" min="0" max="1" step="0.05" /></label>
+        <label>Block: actionable ≥ <input type="number" id="cfgBlkAct" min="0" max="1" step="0.05" /></label>
+        <label>Block: uncertain margin <input type="number" id="cfgBlkMargin" min="0" max="0.5" step="0.05" /></label>
+      </div>
+      <p><button id="cfgSave" type="submit">Save configuration</button>
+      <span class="muted" id="cfgMsg"></span></p>
+    </form>
   </div>
 
   <div class="card">
@@ -188,7 +221,52 @@ $('qform').addEventListener('submit', async (e) => {
   finally { btn.disabled = false; btn.textContent = 'Run'; }
 });
 
-loadStatus(); loadDemo();
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config'); const c = await r.json();
+    if (c.error) { $('cfgMsg').textContent = 'Could not load config.'; return; }
+    $('cfgProvider').value = c.search_provider || 'brave';
+    $('cfgModel').value = c.typesafe_model || '';
+    $('cfgBraveKey').placeholder = c.brave_configured ? 'Set (blank = keep)' : 'Not set';
+    $('cfgJevKey').placeholder = c.typesafe_configured ? 'Set (blank = keep)' : 'Not set';
+    $('cfgMaxSearch').value = c.max_search_results; $('cfgMaxSources').value = c.max_sources;
+    $('cfgMaxTokens').value = c.max_evidence_tokens; $('cfgConcurrency').value = c.max_concurrent_fetches;
+    $('cfgResRel').value = c.result_relevant_threshold; $('cfgResUse').value = c.result_useful_threshold;
+    $('cfgResMargin').value = c.result_uncertain_margin; $('cfgBlkRel').value = c.block_relevant_threshold;
+    $('cfgBlkAct').value = c.block_actionable_threshold; $('cfgBlkMargin').value = c.block_uncertain_margin;
+    $('cfgState').textContent = c.demo_mode ? 'Currently running in demo mode (keys missing).' : 'Live keys configured.';
+  } catch { $('cfgMsg').textContent = 'Could not load config.'; }
+}
+
+$('cfgform').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('cfgSave'); btn.disabled = true; $('cfgMsg').textContent = 'Saving…';
+  const num = (id) => { const v = $(id).value; return v === '' ? undefined : Number(v); };
+  const body = {
+    search_provider: $('cfgProvider').value,
+    typesafe_model: $('cfgModel').value || undefined,
+    max_search_results: num('cfgMaxSearch'), max_sources: num('cfgMaxSources'),
+    max_evidence_tokens: num('cfgMaxTokens'), max_concurrent_fetches: num('cfgConcurrency'),
+    result_relevant_threshold: num('cfgResRel'), result_useful_threshold: num('cfgResUse'),
+    result_uncertain_margin: num('cfgResMargin'), block_relevant_threshold: num('cfgBlkRel'),
+    block_actionable_threshold: num('cfgBlkAct'), block_uncertain_margin: num('cfgBlkMargin'),
+  };
+  if ($('cfgBraveKey').value) body.brave_api_key = $('cfgBraveKey').value;
+  if ($('cfgJevKey').value) body.typesafe_api_key = $('cfgJevKey').value;
+  try {
+    const r = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok || d.error) { $('cfgMsg').textContent = 'Error: ' + (d.error ? d.error.message : r.status); }
+    else {
+      $('cfgMsg').textContent = d.message + (d.persisted ? '' : ' (not saved to disk)');
+      $('cfgBraveKey').value = ''; $('cfgJevKey').value = '';
+      loadStatus(); loadDemo(); loadConfig();
+    }
+  } catch (err) { $('cfgMsg').textContent = 'Save failed: ' + err; }
+  finally { btn.disabled = false; }
+});
+
+loadStatus(); loadDemo(); loadConfig();
 </script>
 </body>
 </html>

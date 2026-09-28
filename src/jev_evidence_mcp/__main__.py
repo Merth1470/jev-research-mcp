@@ -41,8 +41,14 @@ def main(argv: Sequence[str] | None = None) -> None:
     try:
         settings = load_settings()
     except EvidenceError as exc:
-        print(f"Configuration error: {exc.message}", file=sys.stderr)
-        sys.exit(2)
+        # Start anyway on safe defaults; the user can fix config via env or
+        # the dashboard UI. Missing/invalid keys become structured tool
+        # errors instead of a startup crash.
+        print(f"Configuration warning: {exc.message}", file=sys.stderr)
+        print("Starting with safe defaults; configure via env or the dashboard.", file=sys.stderr)
+        from .config import Settings
+
+        settings = Settings()
     if args.no_ui:
         settings.enable_ui = False
     if args.ui_host:

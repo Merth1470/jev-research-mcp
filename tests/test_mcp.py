@@ -138,3 +138,15 @@ def test_build_pipeline_fake_needs_no_keys() -> None:
     settings = Settings(search_provider="fake")
     pipe = build_pipeline(settings, jev=FakeDecisionProvider())
     assert isinstance(pipe, ResearchPipeline)
+
+
+def test_server_starts_without_keys() -> None:
+    mcp = create_mcp_server(Settings(search_provider="brave"))
+    assert mcp is not None
+    assert mcp.name == "jev-evidence"
+
+
+async def test_missing_keys_return_structured_error_not_crash() -> None:
+    mcp = create_mcp_server(Settings(search_provider="brave"))
+    out = await _call_tool(mcp, "research", {"query": "q", "mode": "baseline"})
+    assert out["error"]["code"] == ErrorCode.CONFIGURATION_ERROR.value
