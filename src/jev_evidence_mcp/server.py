@@ -21,7 +21,6 @@ from .jev.interface import DecisionProvider
 from .jev.sdk_provider import SdkDecisionProvider
 from .pipeline import ResearchPipeline
 from .search.brave import BraveSearchProvider
-from .search.fake import FakeSearchProvider, make_fixture_results
 
 logger = logging.getLogger("jev_evidence_mcp")
 
@@ -52,16 +51,18 @@ def build_pipeline(
     jev: DecisionProvider | None = None,
     jev_override: bool = False,
 ) -> ResearchPipeline:
-    """Wire concrete providers from settings; explicit args win (tests)."""
+    """Wire live providers from settings; explicit args win (tests)."""
     search_provider = search
     if search_provider is None:
-        if settings.search_provider == "fake":
-            search_provider = FakeSearchProvider(make_fixture_results(settings.max_search_results))
-        else:
-            search_provider = BraveSearchProvider(
-                settings.require_search_key(),
-                timeout_seconds=settings.fetch_timeout_seconds,
+        if settings.search_provider != "brave":
+            raise EvidenceError(
+                ErrorCode.CONFIGURATION_ERROR,
+                f"Unsupported SEARCH_PROVIDER={settings.search_provider!r}; expected 'brave'.",
             )
+        search_provider = BraveSearchProvider(
+            settings.require_search_key(),
+            timeout_seconds=settings.fetch_timeout_seconds,
+        )
     fetch_provider = fetch or HttpxFetchProvider(
         timeout_seconds=settings.fetch_timeout_seconds,
         max_response_bytes=settings.max_response_bytes,

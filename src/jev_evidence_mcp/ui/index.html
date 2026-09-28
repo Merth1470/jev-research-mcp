@@ -25,18 +25,17 @@
     padding:10px; text-align:center; font-size:12px; }
   .stage b { display:block; font-size:12px; margin-bottom:4px; }
   .stage span { color:var(--muted); }
-  .arrow { text-align:center; color:var(--muted); font-size:12px; margin:6px 0 0; }
   form.row { display:flex; gap:8px; flex-wrap:wrap; }
   input[type=text], input[type=password], input[type=number], select {
     padding:10px 12px; border:1px solid var(--line);
     border-radius:8px; font-size:14px; }
   input[type=text] { flex:1; min-width:220px; }
-  .cfg { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin-top:10px; }
-  .cfg label { display:grid; gap:4px; font-size:12px; color:var(--muted); }
-  .cfg input, .cfg select { width:100%; }
   button { background:var(--acc); color:#fff; border:0; border-radius:8px;
     padding:10px 16px; font-size:14px; cursor:pointer; }
   button:disabled { opacity:.6; cursor:wait; }
+  .cfg { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin-top:10px; }
+  .cfg label { display:grid; gap:4px; font-size:12px; color:var(--muted); }
+  .cfg input, .cfg select { width:100%; }
   .funnel { display:grid; gap:8px; margin-top:10px; }
   .frow { display:grid; grid-template-columns:170px 1fr 90px; gap:10px; align-items:center;
     font-size:13px; }
@@ -51,7 +50,9 @@
   .stat span { font-size:12px; color:var(--muted); }
   .pill { display:inline-block; font-size:11px; padding:2px 8px; border-radius:99px;
     background:#eef2ff; border:1px solid var(--line); margin-right:6px; }
-  .pill.live { background:#dcfce7; } .pill.demo { background:#fef9c3; }
+  .pill.live { background:#dcfce7; } .pill.warn { background:#fef9c3; }
+  .notice { background:#fffbeb; border:1px solid #fde68a; border-radius:10px;
+    padding:10px 12px; font-size:13px; margin-top:10px; }
   pre.src { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:10px;
     overflow:auto; font-size:12px; max-height:220px; }
   details { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:8px 0;
@@ -67,14 +68,15 @@
   <h1>JEV Evidence MCP — what gets into the agent</h1>
   <p>Search &rarr; JEV result filter &rarr; fetch &rarr; parse &rarr; JEV block filter &rarr; assemble.
   This page visualizes how much context is <b>cut</b> before it reaches the coding agent.
-  Token counts are the documented <code>chars/4</code> approximation.</p>
+  Token counts are the documented <code>chars/4</code> approximation.
+  Everything shown here is live — no placeholder numbers.</p>
 </div></header>
 <main class="wrap">
 
   <div class="card">
     <h2>How it works</h2>
     <div class="stages">
-      <div class="stage"><b>1. Search</b><span>Brave / fake candidates</span></div>
+      <div class="stage"><b>1. Search</b><span>Brave candidates</span></div>
       <div class="stage"><b>2. JEV results</b><span>keep relevant AND useful</span></div>
       <div class="stage"><b>3. Fetch</b><span>only survivors, bounded</span></div>
       <div class="stage"><b>4. Parse</b><span>HTML &rarr; blocks</span></div>
@@ -85,25 +87,19 @@
   </div>
 
   <div class="card">
-    <h2>Offline demo — baseline vs JEV (no keys needed)</h2>
-    <p class="muted">Bundled fixtures: 12 pages, every 3rd one is marketing noise. JEV keeps the 8 relevant.</p>
-    <div class="funnel" id="demoFunnel"></div>
-    <div class="stats" id="demoStats"></div>
-  </div>
-
-  <div class="card">
     <h2>Try it live</h2>
+    <div class="notice" id="keyNotice" hidden>Keys are missing — set them in
+      <a href="#configuration">Configuration</a> below, then run again.</div>
     <form class="row" id="qform">
       <input type="text" id="q" value="How do I bound concurrent HTTP fetches with retries in Python?" maxlength="2000" />
       <select id="mode"><option value="jev">jev</option><option value="baseline">baseline</option></select>
       <select id="ms"><option value="6">6 sources</option><option value="4">4 sources</option><option value="10">10 sources</option></select>
       <button id="go" type="submit">Run</button>
     </form>
-    <p class="muted">Without <code>TYPESAFE_API_KEY</code> / <code>BRAVE_API_KEY</code> the UI runs the offline demo stack and labels it <span class="pill demo">demo</span>. With keys it runs your live pipeline and labels it <span class="pill live">live</span>.</p>
     <div id="out"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="configuration">
     <h2>Configuration</h2>
     <p class="muted">Provider, keys, and tuning knobs. Applies immediately and is saved to
     <code>.env</code> for next start. Keys are never displayed back — leave a key blank to keep it.
@@ -111,7 +107,7 @@
     <form id="cfgform">
       <div class="cfg">
         <label>Search provider
-          <select id="cfgProvider"><option value="brave">brave</option><option value="fake">fake (offline)</option></select>
+          <select id="cfgProvider"><option value="brave">brave</option></select>
         </label>
         <label>Brave API key <input type="password" id="cfgBraveKey" autocomplete="off" /></label>
         <label>TypeSafe (JEV) API key <input type="password" id="cfgJevKey" autocomplete="off" /></label>
@@ -158,27 +154,11 @@ function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;'
 async function loadStatus() {
   try {
     const r = await fetch('/api/status'); const s = await r.json();
-    $('statusLine').innerHTML =
-      `Server: <span class="pill ${s.demo_mode ? 'demo' : 'live'}">${s.demo_mode ? 'demo' : 'live'}</span>` +
-      ` search=<code>${esc(s.search_provider)}</code> JEV keys=${s.jev_configured ? 'yes' : 'no'}` +
-      ` search keys=${s.search_configured ? 'yes' : 'no'} thresholds=${s.result_threshold}/${s.block_threshold}`;
+    $('statusLine').innerHTML = s.ready
+      ? `<span class="pill live">live</span> search=<code>${esc(s.search_provider)}</code> thresholds=${s.result_threshold}/${s.block_threshold}`
+      : `<span class="pill warn">needs keys</span> set <code>BRAVE_API_KEY</code> and <code>TYPESAFE_API_KEY</code> in <a href="#configuration">Configuration</a>`;
+    $('keyNotice').hidden = !!s.ready;
   } catch { $('statusLine').textContent = 'Status unavailable (is the dashboard running?)'; }
-}
-async function loadDemo() {
-  try {
-    const r = await fetch('/api/demo'); const d = await r.json();
-    const b = d.baseline, j = d.jev;
-    funnelRows($('demoFunnel'), [
-      ['Baseline fetched', b.fetched, ''], ['JEV fetched', j.fetched, 'good'],
-      ['Baseline blocks', b.blocks_seen, ''], ['JEV blocks kept', j.blocks_selected, 'good'],
-      ['Baseline tokens ≈', b.estimated_input_tokens, 'cut'], ['JEV tokens ≈', j.estimated_input_tokens, 'good'],
-    ]);
-    statCards($('demoStats'), [
-      [`−${Math.round(100*d.fetch_reduction)}%`, 'pages not fetched'],
-      [`−${Math.round(100*d.context_reduction)}%`, 'tokens not sent'],
-      [j.jev_requests, 'JEV calls'], [j.evidence_items, 'evidence items'],
-    ]);
-  } catch { $('demoFunnel').innerHTML = '<p class="muted">Demo unavailable.</p>'; }
 }
 
 $('qform').addEventListener('submit', async (e) => {
@@ -189,14 +169,17 @@ $('qform').addEventListener('submit', async (e) => {
     const body = { query: $('q').value, mode: $('mode').value, max_sources: parseInt($('ms').value, 10) };
     const r = await fetch('/api/research', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     const d = await r.json();
-    if (d.error) { $('out').innerHTML = `<p><b>Error (${esc(d.error.code||'error')}):</b> ${esc(d.error.message||'failed')}</p>`; return; }
+    if (d.error) {
+      const hint = d.error.code === 'configuration_error'
+        ? ' Set your keys in <a href="#configuration">Configuration</a>.'
+        : '';
+      $('out').innerHTML = `<p><b>Error (${esc(d.error.code||'error')}):</b> ${esc(d.error.message||'failed')}${hint}</p>`;
+      return;
+    }
     const m = d.metadata;
     const cut = (m.blocks_seen||0) - (m.blocks_selected||0);
-    let html = `<p><span class="pill ${d.demo_mode?'demo':'live'}">${d.demo_mode?'demo':'live'}</span>` +
-      `<span class="muted">mode=${esc(m.mode)} latency=${m.latency_ms}ms JEV calls=${m.jev_requests}</span></p><div class="funnel">`;
-    funnelRows($('out'), []); // clear
-    html += `</div><div class="funnel" id="rf"></div><div class="stats" id="rs"></div><div id="srcs"></div>`;
-    $('out').innerHTML = html;
+    $('out').innerHTML = `<p><span class="muted">mode=${esc(m.mode)} latency=${m.latency_ms}ms JEV calls=${m.jev_requests}</span></p>` +
+      `<div class="funnel" id="rf"></div><div class="stats" id="rs"></div><div id="srcs"></div>`;
     funnelRows($('rf'), [
       ['Search results', m.search_results, ''], ['Results kept', m.selected_results, 'good'],
       ['Docs fetched', m.documents_fetched, ''], ['Docs failed', m.documents_failed, 'cut'],
@@ -234,7 +217,7 @@ async function loadConfig() {
     $('cfgResRel').value = c.result_relevant_threshold; $('cfgResUse').value = c.result_useful_threshold;
     $('cfgResMargin').value = c.result_uncertain_margin; $('cfgBlkRel').value = c.block_relevant_threshold;
     $('cfgBlkAct').value = c.block_actionable_threshold; $('cfgBlkMargin').value = c.block_uncertain_margin;
-    $('cfgState').textContent = c.demo_mode ? 'Currently running in demo mode (keys missing).' : 'Live keys configured.';
+    $('cfgState').textContent = c.ready ? 'Live keys configured.' : 'Keys missing — save them here to go live.';
   } catch { $('cfgMsg').textContent = 'Could not load config.'; }
 }
 
@@ -260,13 +243,13 @@ $('cfgform').addEventListener('submit', async (e) => {
     else {
       $('cfgMsg').textContent = d.message + (d.persisted ? '' : ' (not saved to disk)');
       $('cfgBraveKey').value = ''; $('cfgJevKey').value = '';
-      loadStatus(); loadDemo(); loadConfig();
+      loadStatus(); loadConfig();
     }
   } catch (err) { $('cfgMsg').textContent = 'Save failed: ' + err; }
   finally { btn.disabled = false; }
 });
 
-loadStatus(); loadDemo(); loadConfig();
+loadStatus(); loadConfig();
 </script>
 </body>
 </html>

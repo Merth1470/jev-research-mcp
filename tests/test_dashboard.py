@@ -1,4 +1,9 @@
-"""Dashboard: config defaults, status/demo/research endpoints, index page."""
+"""Dashboard: config defaults, status/research/config endpoints, index page.
+
+Live-data only: without API keys the dashboard reports not-ready and the
+research endpoint returns a structured configuration error. Nothing here
+serves fabricated results.
+"""
 
 from __future__ import annotations
 
@@ -88,8 +93,7 @@ def _post(server: ThreadingHTTPServer, path: str, payload: dict[str, Any]) -> tu
 
 @pytest.fixture
 def server(tmp_path: Path) -> Iterator[ThreadingHTTPServer]:
-    settings = Settings(search_provider="fake")  # type: ignore[arg-type]
-    with _serve(settings, tmp_path / "test.env") as srv:
+    with _serve(Settings(), tmp_path / "test.env") as srv:
         yield srv
 
 
@@ -109,13 +113,21 @@ def test_ui_env_override(monkeypatch: pytest.MonkeyPatch, clean_env: None) -> No
     assert settings.ui_port == 8899
 
 
-def test_status_reports_demo_without_keys(server: ThreadingHTTPServer) -> None:
+def test_status_reports_not_ready_without_keys(server: ThreadingHTTPServer) -> None:
     status, body = _get(server, "/api/status")
     assert status == 200
     data = json.loads(body)
-    assert data["search_provider"] == "fake"
-    assert data["demo_mode"] is True  # no JEV key -> demo
+    assert data["search_provider"] == "brave"
+    assert data["ready"] is False
+    assert "demo_mode" not in data
     assert data["max_sources"] > 0
+
+
+def test_status_reports_ready_with_keys(tmp_path: Path) -> None:
+    settings = Settings(brave_api_key="k-brave", typesafe_api_key="k-jev")
+    with _serve(settings, tmp_path / "test.env") as srv:
+        _, body = _get(srv, "/api/status")
+        assert json.loads(body)["ready"] is True
 
 
 def test_index_serves_html(server: ThreadingHTTPServer) -> None:
@@ -123,27 +135,27 @@ def test_index_serves_html(server: ThreadingHTTPServer) -> None:
     assert status == 200
     assert "JEV Evidence MCP" in body
     assert "api/research" in body
+    assert "demo" not in body.lower()  # live data only, no placeholder content
 
 
-def test_demo_returns_baseline_and_jev(server: ThreadingHTTPServer) -> None:
-    status, body = _get(server, "/api/demo")
-    assert status == 200
-    data = json.loads(body)
-    assert "baseline" in data and "jev" in data
-    assert data["jev"]["fetched"] <= data["baseline"]["fetched"]
-    assert "context_reduction" in data
+def test_removed_demo_endpoint_stays_gone(server: ThreadingHTTPServer) -> None:
+    try:
+        _get(server, "/api/demo")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 404
+    else:  # pragma: no cover
+        raise AssertionError("expected 404 for /api/demo")
 
 
-def test_research_offline_returns_funnel_metadata(server: ThreadingHTTPServer) -> None:
+def test_research_without_keys_returns_configuration_error(
+    server: ThreadingHTTPServer,
+) -> None:
     payload = {"query": "bound concurrent fetches?", "mode": "jev"}
     status, data = _post(server, "/api/research", payload)
     assert status == 200
-    assert "error" not in data
-    assert data["demo_mode"] is True
-    meta = data["metadata"]
-    assert meta["search_results"] > 0
-    assert meta["blocks_seen"] >= meta["blocks_selected"]
-    assert len(data["sources"]) > 0
+    assert data["sources"] == []
+    assert data["error"]["code"] == "configuration_error"
+    assert "demo_mode" not in data
 
 
 def test_research_rejects_bad_mode(server: ThreadingHTTPServer) -> None:
@@ -153,11 +165,7 @@ def test_research_rejects_bad_mode(server: ThreadingHTTPServer) -> None:
 
 
 def test_config_get_hides_secret_values(tmp_path: Path) -> None:
-    settings = Settings(
-        search_provider="fake",  # type: ignore[arg-type]
-        brave_api_key="super-secret-brave",
-        typesafe_api_key="super-secret-jev",
-    )
+    settings = Settings(brave_api_key="super-secret-brave", typesafe_api_key="super-secret-jev")
     with _serve(settings, tmp_path / "test.env") as srv:
         status, body = _get(srv, "/api/config")
         assert status == 200
@@ -168,13 +176,12 @@ def test_config_get_hides_secret_values(tmp_path: Path) -> None:
         assert "typesafe_api_key" not in data
         assert data["brave_configured"] is True
         assert data["typesafe_configured"] is True
-        assert data["max_sources"] == 10
+        assert data["ready"] is True
 
 
 def test_config_post_updates_and_persists(tmp_path: Path) -> None:
     env_file = tmp_path / "test.env"
-    settings = Settings(search_provider="fake")  # type: ignore[arg-type]
-    with _serve(settings, env_file) as srv:
+    with _serve(Settings(), env_file) as srv:
         status, data = _post(
             srv,
             "/api/config",
@@ -195,9 +202,15 @@ def test_config_post_updates_and_persists(tmp_path: Path) -> None:
         assert "k-test" not in json.dumps(data["config"])
 
 
+def test_config_post_rejects_unknown_provider(tmp_path: Path) -> None:
+    with _serve(Settings(), tmp_path / "test.env") as srv:
+        status, data = _post(srv, "/api/config", {"search_provider": "fake"})
+        assert status == 400
+        assert data["error"]["code"] == "configuration_error"
+
+
 def test_config_post_rejects_invalid_unchanged(tmp_path: Path) -> None:
-    settings = Settings(search_provider="fake")  # type: ignore[arg-type]
-    with _serve(settings, tmp_path / "test.env") as srv:
+    with _serve(Settings(), tmp_path / "test.env") as srv:
         status, data = _post(srv, "/api/config", {"result_relevant_threshold": 5})
         assert status == 400
         assert data["error"]["code"] == "configuration_error"
@@ -206,10 +219,7 @@ def test_config_post_rejects_invalid_unchanged(tmp_path: Path) -> None:
 
 
 def test_config_post_blank_keys_keep_existing(tmp_path: Path) -> None:
-    settings = Settings(
-        search_provider="fake",  # type: ignore[arg-type]
-        brave_api_key="keep-me",
-    )
+    settings = Settings(brave_api_key="keep-me")
     with _serve(settings, tmp_path / "test.env") as srv:
         status, data = _post(srv, "/api/config", {"max_sources": 7, "brave_api_key": "   "})
         assert status == 200

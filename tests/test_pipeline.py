@@ -1,4 +1,7 @@
-"""Pipeline integration: fake search + fake JEV + fake fetch, real everything else."""
+"""Pipeline integration: test doubles in, real pipeline stages under test.
+
+Doubles live in ``tests/helpers.py`` and never touch production code.
+"""
 
 from __future__ import annotations
 
@@ -6,26 +9,9 @@ import pytest
 
 from jev_evidence_mcp.config import Settings
 from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.fetch.fetcher import FetchedPage
-from jev_evidence_mcp.jev.interface import FakeDecisionProvider
 from jev_evidence_mcp.pipeline import ResearchPipeline
-from jev_evidence_mcp.search.fake import FakeSearchProvider
 from tests.conftest import DOC_HTML
-
-
-class DictFetch:
-    def __init__(self, pages: dict[str, str], *, fail: set[str] | None = None) -> None:
-        self._pages = pages
-        self.fail = fail or set()
-        self.calls: list[str] = []
-
-    async def fetch(self, url: str) -> FetchedPage:
-        self.calls.append(url)
-        if url in self.fail:
-            raise EvidenceError(ErrorCode.FETCH_ERROR, "fixture failure")
-        return FetchedPage(
-            url=url, original_url=url, content=self._pages[url], content_type="text/html"
-        )
+from tests.helpers import DictFetch, FakeDecisionProvider, FakeSearchProvider
 
 
 def _stack(
@@ -51,7 +37,7 @@ def _stack(
     }
     fetch = DictFetch(pages, fail=fail)
     provider = jev or FakeDecisionProvider()
-    settings = Settings(search_provider="fake", **settings_kwargs)  # type: ignore[arg-type]
+    settings = Settings(**settings_kwargs)
     pipe = ResearchPipeline(settings, search=search, fetch=fetch, jev=provider)
     return pipe, search, fetch, provider
 
@@ -124,7 +110,7 @@ async def test_excessive_limits_bounded() -> None:
 
 
 async def test_jev_mode_without_provider_nonempty() -> None:
-    settings = Settings(search_provider="fake")
+    settings = Settings()
     fixtures = [{"title": "t", "url": "https://example.com/a", "snippet": "s"}]
     pipe = ResearchPipeline(
         settings, search=FakeSearchProvider(fixtures), fetch=DictFetch({}), jev=None
@@ -158,7 +144,7 @@ async def test_identical_pages_dedup_to_one_source() -> None:
         {"title": f"Guide {i}", "url": f"https://example.com/docs/{i}", "snippet": "s"}
         for i in range(3)
     ]
-    settings = Settings(search_provider="fake")
+    settings = Settings()
     scores = {(f"r{i}", p): 0.92 for i in range(3) for p in ("relevant", "useful", "authoritative")}
     pipe = ResearchPipeline(
         settings,
@@ -175,7 +161,7 @@ async def test_identical_pages_dedup_to_one_source() -> None:
 
 
 async def test_no_search_results_returns_empty() -> None:
-    settings = Settings(search_provider="fake")
+    settings = Settings()
     pipe = ResearchPipeline(
         settings, search=FakeSearchProvider([]), fetch=DictFetch({}), jev=FakeDecisionProvider()
     )

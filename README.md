@@ -37,7 +37,7 @@ sources.
 Coding Agent
     │  MCP tool: research(query, max_sources?, max_evidence_tokens?, mode?)
     ▼
-SearchProvider (Brave Search API; Fake for offline/tests)
+SearchProvider (Brave Search API — live data only)
     │  normalized SearchResult{id,title,url,snippet,domain}
     ▼
 JEV result filter — ONE state {task, candidates} + N questions (relevant,
@@ -126,7 +126,7 @@ value is validated on load; errors name the variable without echoing secrets.
 | `TYPESAFE_API_KEY` | — (required for `jev` mode) | Your TypeSafe key (`JEV_API_KEY` also accepted) |
 | `TYPESAFE_MODEL` | `jev-latest` | JEV model |
 | `TYPESAFE_BASE_URL` | `https://api.typesafe.ai` | API root (gateway-compatible) |
-| `SEARCH_PROVIDER` | `brave` | `brave` or `fake` (offline) |
+| `SEARCH_PROVIDER` | `brave` | `brave` (live only) |
 | `BRAVE_API_KEY` | — (required for Brave) | Your Brave Search key (`SEARCH_API_KEY` fallback) |
 | `MAX_SEARCH_RESULTS` | `20` (≤ 50) | Search candidates |
 | `FETCH_TIMEOUT_SECONDS` | `15` | Per-request timeout |
@@ -201,11 +201,13 @@ python -m jev_evidence_mcp --no-ui        # MCP stdio only
 python -m jev_evidence_mcp --ui-port 8899 --open-browser
 ```
 
-The page shows the 6 pipeline stages, an offline baseline-vs-JEV demo
-(no keys needed), a live query box, and a kept-vs-cut funnel
-(search → selected → fetched → blocks seen/kept → evidence → tokens).
-Without `TYPESAFE_API_KEY`/`BRAVE_API_KEY` it runs the bundled demo stack
-and labels results `demo`; with keys it runs your live pipeline (`live`).
+The page shows the 6 pipeline stages, a live query box, and a kept-vs-cut
+funnel (search → selected → fetched → blocks seen/kept → evidence → tokens).
+Everything shown is live — there is no demo data. Without
+`TYPESAFE_API_KEY`/`BRAVE_API_KEY` the header reads `needs keys` and runs
+return a structured configuration error pointing at the **Configuration**
+section below, where you can save keys (persisted to `.env`, applied
+immediately).
 Config: `ENABLE_UI`, `UI_HOST`, `UI_PORT`, `UI_OPEN_BROWSER`. No new
 dependencies (stdlib HTTP server + one static HTML file).
 
@@ -222,8 +224,8 @@ V1 ships one concrete provider: **Brave Search API**
 header). Set `BRAVE_API_KEY` (or `SEARCH_API_KEY`). Your key is sent only to
 Brave. To add a provider, implement the `SearchProvider` protocol
 (`search(query, max_results) -> list[SearchResult]`) and wire it in
-`server.build_pipeline`. `SEARCH_PROVIDER=fake` serves built-in fixtures for
-offline development and tests.
+`server.build_pipeline`. (The test suite uses doubles in `tests/helpers.py`;
+production code paths never serve fabricated results.)
 
 ## 9. JEV configuration
 
@@ -267,7 +269,7 @@ vague "is this good?" prompts.
 # }
 ```
 
-Offline benchmark (no keys needed):
+Live benchmark (requires both API keys — it measures real evidence selection):
 
 ```bash
 python -m jev_evidence_mcp.benchmark.bench --out benchmark_outputs/latest.json
@@ -308,44 +310,37 @@ and truncated queries — never API keys or authorization headers.
 ## 13. Testing
 
 ```bash
-pytest                      # full suite (offline; ~145 tests)
+pytest                      # full suite (~160 tests; offline via tests/helpers.py doubles)
 pytest tests/test_live_smoke.py   # live JEV check — only runs with TYPESAFE_API_KEY
 ```
 
 Coverage: config/bounds, search normalization, batching, SSRF + redirect
-validation, fetcher (size/timeout/content-type/errors), parser fixtures
+validation, fetcher (size/timeout/content-type/errors), parser cases
 (noise vs. docs/code/lists/tables), question batching shape, JEV validation
 (missing/unexpected/duplicate/out-of-range), deterministic policies
-(including spec'd keep/drop/uncertain fixtures), dedup/tokens/assembly
-(context, fences, budget, provenance), offline providers, pipeline
+(keep/drop/uncertain), dedup/tokens/assembly
+(context, fences, budget, provenance), pipeline
 invariants (discarded results never fetched; one failure ≠ total failure),
-MCP protocol (advertise/schema/execute/structured errors), benchmark, cache.
+MCP protocol (advertise/schema/execute/structured errors), dashboard
+(status/research/config, no secret leaks), benchmark math, cache.
+Live checks (`test_live_smoke`, benchmark comparison) skip without keys.
 
 ## 14. Benchmarking
 
 `python -m jev_evidence_mcp.benchmark.bench` compares `baseline` (no JEV)
-vs `jev` on identical fixtures and writes JSON with date, model, config,
+vs `jev` on identical live queries and writes JSON with date, model, config,
 thresholds, and per-mode measurements (results, fetches, blocks
-before/after, approx tokens, latency, JEV requests/tokens).
+before/after, approx tokens, latency, JEV requests/tokens). It requires
+`TYPESAFE_API_KEY` and `BRAVE_API_KEY` and exits non-zero without them —
+there is no fixture mode, so every number reflects real evidence selection.
 
-Measured on the bundled offline fixtures (2026-09-22, fake decision
-provider, thresholds 0.5/0.5, `MAX_EVIDENCE_TOKENS=8000`):
-
-| Metric | Baseline | JEV-filtered |
-|---|---|---|
-| Pages fetched | 10 | 8 (−20%) |
-| Blocks seen | 80 | 64 |
-| Est. input tokens (chars/4 approx) | ~488 | ~372 (−23.8%) |
-| JEV requests | 0 | 9 |
-
-These are fixture measurements, not general claims: live savings depend on
-query, sources, and thresholds. Re-run the benchmark for your workload and
-quote your own numbers.
+Savings depend on query, sources, and thresholds: run the benchmark for your
+workload and quote your own numbers.
 
 ## 15. Limitations
 
-- JEV is a hosted API: `jev` mode needs a key and network; offline use is
-  `mode="baseline"` or `SEARCH_PROVIDER=fake`.
+- JEV is a hosted API: `jev` mode needs a key and network; `mode="baseline"`
+  still needs a Brave key (it skips only the JEV filtering).
 - V1 does single-pass retrieval only (no adaptive second pass).
 - Dedup is exact-match only (whitespace-normalized); no near-duplicate or
   semantic similarity.

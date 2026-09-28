@@ -1,13 +1,14 @@
-"""Benchmark framework: baseline vs JEV-filtered (no fake performance claims).
+"""Benchmark: baseline vs JEV-filtered on live providers.
 
 Measures per mode: search results, fetches, blocks before/after filtering,
-estimated input tokens, latency, JEV requests + token usage. Run offline
-with fakes (``python -m jev_evidence_mcp.benchmark.bench``) or against live
-providers by setting the documented env vars. Results are written to
-``benchmark_outputs/`` (gitignored) with date, model, config, thresholds.
+estimated input tokens, latency, JEV requests + token usage. Requires live
+API keys (``TYPESAFE_API_KEY`` and ``BRAVE_API_KEY``); there is deliberately
+no offline/fixture mode — the numbers must reflect real evidence selection.
+Results are written to ``benchmark_outputs/`` (gitignored) with date, model,
+config, and thresholds.
 
 No claims are made here — the output is raw measurements for the README to
-quote with provenance.
+quote with provenance. Re-run for your own workload and quote your numbers.
 """
 
 from __future__ import annotations
@@ -22,52 +23,9 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from ..config import Settings, load_settings
-from ..fetch.fetcher import FetchedPage
-from ..jev.interface import FakeDecisionProvider
+from ..errors import EvidenceError
 from ..pipeline import ResearchPipeline
-from ..search.fake import FakeSearchProvider
-
-SAMPLE_HTML = """<!DOCTYPE html><html><head><title>{title}</title></head>
-<body><nav>Home Products Pricing</nav>
-<script>var tracker = 1;</script>
-<div class="cookie-banner">Accept cookies</div>
-<h1>{heading}</h1>
-<p>{para1}</p>
-<pre><code class="language-python">{code}</code></pre>
-<p>{para2}</p>
-<h2>Configuration</h2>
-<p>{para3}</p>
-<ul><li>Set timeout to 15 seconds</li><li>Bound concurrency with a semaphore</li></ul>
-<footer>Copyright 2026 Example Corp</footer>
-</body></html>"""
-
-DOC_TOPICS = [
-    (
-        "Async fetching guide",
-        "Fetch pages concurrently",
-        "Use asyncio.Semaphore to bound concurrent fetches and respect upstream.",
-        "client = httpx.AsyncClient(timeout=15.0)\nasync with semaphore:\n"
-        "    r = await client.get(url)",
-        "Retries use exponential backoff with a small maximum count.",
-        "Always revalidate redirect targets against SSRF policy.",
-    ),
-    (
-        "Unrelated marketing page",
-        "Buy our miracle framework",
-        "This page sells a JavaScript framework and has nothing to do with the task.",
-        "console.log('buy now');",
-        "Pricing starts at $999 per seat per month.",
-        "Contact sales for a demo today.",
-    ),
-    (
-        "SSRF protection checklist",
-        "Blocking private destinations",
-        "Resolve hosts and require every address to be globally routable.",
-        "ip = ipaddress.ip_address(host)\nassert ip.is_global",
-        "Block localhost, loopback, RFC-1918, link-local, and metadata IPs.",
-        "Revalidate every redirect hop before following it.",
-    ),
-]
+from ..server import build_pipeline
 
 
 @dataclass
@@ -82,44 +40,6 @@ class BenchmarkCase:
     latency_ms: int
     jev_requests: int
     jev_input_tokens: int
-
-
-class DictFetchProvider:
-    """Fake fetch serving canned HTML per URL; counts calls."""
-
-    def __init__(self, pages: dict[str, str]) -> None:
-        self._pages = pages
-        self.calls: list[str] = []
-
-    async def fetch(self, url: str) -> FetchedPage:
-        self.calls.append(url)
-        if url not in self._pages:
-            from ..errors import ErrorCode, EvidenceError
-
-            raise EvidenceError(ErrorCode.FETCH_ERROR, f"No fixture for {url!r}.")
-        html = self._pages[url]
-        return FetchedPage(url=url, original_url=url, content=html, content_type="text/html")
-
-
-def build_offline_stack(
-    settings: Settings, *, jev_scores: dict[tuple[str, str], float] | None = None
-) -> tuple[ResearchPipeline, FakeSearchProvider, DictFetchProvider, FakeDecisionProvider]:
-    fixtures = [
-        {"title": t, "url": f"https://example.com/docs/{i}", "snippet": p1}
-        for i, (t, _h, p1, _c, _p2, _p3) in enumerate(DOC_TOPICS * 4)
-    ]
-    search = FakeSearchProvider(fixtures)
-    pages = {}
-    for i, (title, heading, para1, code, para2, para3) in enumerate(DOC_TOPICS * 4):
-        # Unique marker per page keeps fixtures realistic (distinct URLs carry
-        # distinct content); exact-dedup still collapses the shared boilerplate.
-        pages[f"https://example.com/docs/{i}"] = SAMPLE_HTML.format(
-            title=title, heading=heading, para1=para1, code=code, para2=para2, para3=para3
-        ).replace("</body>", f"<p>Page-specific note {i}.</p></body>")
-    fetch = DictFetchProvider(pages)
-    jev = FakeDecisionProvider(scores=jev_scores or {})
-    pipe = ResearchPipeline(settings, search=search, fetch=fetch, jev=jev)
-    return pipe, search, fetch, jev
 
 
 async def run_case(
@@ -144,25 +64,26 @@ async def run_case(
 
 
 async def compare(query: str, settings: Settings) -> dict[str, object]:
-    # JEV run: relevant docs score high, marketing doc scores low.
-    jev_scores: dict[tuple[str, str], float] = {}
-    for i in range(12):
-        relevant = (i % 3) != 1  # every 3rd doc is the marketing page
-        for prop in ("relevant", "useful", "authoritative"):
-            jev_scores[(f"r{i}", prop)] = 0.92 if relevant else 0.08
-    # max_sources=10 (server cap): baseline fetches 10, JEV keeps the 8 relevant.
-    pipe_jev, _s1, _f1, _j = build_offline_stack(settings, jev_scores=jev_scores)
-    jev_case = await run_case("jev", pipe_jev, query, mode="jev", max_sources=10)
+    """Run baseline then JEV on identical live queries and contrast the two."""
+    settings.require_search_key()
+    settings.require_typesafe_key()
+    pipe = build_pipeline(settings)
+    jev_case = await run_case("jev", pipe, query, mode="jev", max_sources=settings.max_sources)
+    base_case = await run_case(
+        "baseline", pipe, query, mode="baseline", max_sources=settings.max_sources
+    )
+    return _report_with_cases(query, settings, base_case, jev_case)
 
-    pipe_base, _s2, _f2, _j2 = build_offline_stack(settings)
-    base_case = await run_case("baseline", pipe_base, query, mode="baseline", max_sources=10)
 
+def _report_with_cases(
+    query: str, settings: Settings, base_case: BenchmarkCase, jev_case: BenchmarkCase
+) -> dict[str, object]:
     def reduction(before: int, after: int) -> float:
         return round((before - after) / before, 3) if before else 0.0
 
     return {
         "date": datetime.now(timezone.utc).isoformat(),
-        "model": "fake-decision-provider (offline); live runs report settings.typesafe_model",
+        "model": settings.typesafe_model,
         "query": query,
         "config": {
             "max_search_results": settings.max_search_results,
@@ -198,11 +119,23 @@ def main() -> None:
 
     try:
         settings = load_settings()
-    except Exception:
-        settings = Settings(search_provider="fake")  # type: ignore[arg-type]
-        print("No valid env config; using offline defaults.", file=sys.stderr)
+        settings.require_search_key()
+        settings.require_typesafe_key()
+    except EvidenceError as exc:
+        print(f"Benchmark needs live API keys: {exc.message}", file=sys.stderr)
+        sys.exit(2)
 
-    report = asyncio.run(compare(args.query, settings))
+    async def _run() -> dict[str, object]:
+        pipe = build_pipeline(settings)
+        jev_case = await run_case(
+            "jev", pipe, args.query, mode="jev", max_sources=settings.max_sources
+        )
+        base_case = await run_case(
+            "baseline", pipe, args.query, mode="baseline", max_sources=settings.max_sources
+        )
+        return _report_with_cases(args.query, settings, base_case, jev_case)
+
+    report = asyncio.run(_run())
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(report, handle, indent=2)

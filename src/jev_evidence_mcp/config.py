@@ -64,8 +64,8 @@ class Settings(BaseModel):
     typesafe_model: str = Field(default="jev-latest")
     typesafe_base_url: str = Field(default="https://api.typesafe.ai")
 
-    # Search
-    search_provider: Literal["brave", "fake"] = Field(default="brave")
+    # Search (live providers only; no demo data in production)
+    search_provider: Literal["brave"] = Field(default="brave")
     brave_api_key: str = Field(default="")
     max_search_results: int = Field(default=20, ge=1, le=50)
 
@@ -130,13 +130,11 @@ class Settings(BaseModel):
         return self.typesafe_api_key
 
     def require_search_key(self) -> str:
-        if self.search_provider == "fake":
-            return ""
         if not self.brave_api_key:
             raise EvidenceError(
                 ErrorCode.CONFIGURATION_ERROR,
                 "Missing BRAVE_API_KEY (or SEARCH_API_KEY). "
-                "Set it in your environment or use SEARCH_PROVIDER=fake for offline use.",
+                "Set it in your environment or via the dashboard Configuration section.",
             )
         return self.brave_api_key
 

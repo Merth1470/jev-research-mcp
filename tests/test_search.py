@@ -1,4 +1,7 @@
-"""Search normalization + providers (no real search API needed)."""
+"""Search normalization + live Brave provider mapping (mocked HTTP, no network).
+
+Provider doubles for pipeline tests live in ``tests/helpers.py``.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +13,7 @@ import pytest
 from jev_evidence_mcp.errors import ErrorCode, EvidenceError
 from jev_evidence_mcp.search.base import normalize_domain, normalize_search_result
 from jev_evidence_mcp.search.brave import BraveSearchProvider
-from jev_evidence_mcp.search.fake import FakeSearchProvider, make_fixture_results
+from tests.helpers import FakeSearchProvider, make_fixture_results
 
 
 def test_normalize_trims_and_extracts_domain() -> None:

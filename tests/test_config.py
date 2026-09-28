@@ -72,9 +72,11 @@ def test_search_key_required_for_brave(clean_env: None) -> None:
     assert exc_info.value.code == ErrorCode.CONFIGURATION_ERROR
 
 
-def test_fake_provider_needs_no_key() -> None:
-    settings = Settings(search_provider="fake")
-    assert settings.require_search_key() == ""
+def test_search_key_never_echoed_in_error(clean_env: None) -> None:
+    settings = load_settings()
+    with pytest.raises(EvidenceError) as exc_info:
+        settings.require_search_key()
+    assert "BRAVE_API_KEY" in exc_info.value.message
 
 
 def test_thresholds_must_be_probabilities(clean_env: None) -> None:

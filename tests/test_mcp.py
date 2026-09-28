@@ -6,14 +6,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from jev_evidence_mcp.config import Settings
-from jev_evidence_mcp.errors import ErrorCode
-from jev_evidence_mcp.jev.interface import FakeDecisionProvider
+from jev_evidence_mcp.errors import ErrorCode, EvidenceError
 from jev_evidence_mcp.pipeline import ResearchPipeline
-from jev_evidence_mcp.search.fake import FakeSearchProvider
 from jev_evidence_mcp.server import build_pipeline, create_mcp_server
 from tests.conftest import DOC_HTML
-from tests.test_pipeline import DictFetch
+from tests.helpers import DictFetch, FakeDecisionProvider, FakeSearchProvider
 
 
 def _offline_pipeline() -> ResearchPipeline:
@@ -26,7 +26,7 @@ def _offline_pipeline() -> ResearchPipeline:
         for i in range(4)
     ]
     scores = {(f"r{i}", p): 0.9 for i in range(4) for p in ("relevant", "useful", "authoritative")}
-    settings = Settings(search_provider="fake")
+    settings = Settings()
     return ResearchPipeline(
         settings,
         search=FakeSearchProvider(fixtures),
@@ -71,13 +71,13 @@ async def _call_tool(mcp: Any, name: str, args: dict[str, Any]) -> dict[str, Any
 
 
 def test_server_starts_and_advertises_research_tool() -> None:
-    mcp = create_mcp_server(Settings(search_provider="fake"), pipeline=_offline_pipeline())
+    mcp = create_mcp_server(Settings(), pipeline=_offline_pipeline())
     assert mcp is not None
     assert mcp.name == "jev-evidence"
 
 
 async def test_tool_schema_valid() -> None:
-    mcp = create_mcp_server(Settings(search_provider="fake"), pipeline=_offline_pipeline())
+    mcp = create_mcp_server(Settings(), pipeline=_offline_pipeline())
     tools = await _list_tools(mcp)
     names = [
         getattr(t, "name", None) or (t["name"] if isinstance(t, dict) else None) for t in tools
@@ -91,7 +91,7 @@ async def test_tool_schema_valid() -> None:
 
 
 async def test_valid_call_executes_pipeline() -> None:
-    mcp = create_mcp_server(Settings(search_provider="fake"), pipeline=_offline_pipeline())
+    mcp = create_mcp_server(Settings(), pipeline=_offline_pipeline())
     out = await _call_tool(mcp, "research", {"query": "how to fetch async?"})
     assert "error" not in out
     assert out["query"] == "how to fetch async?"
@@ -103,26 +103,26 @@ async def test_valid_call_executes_pipeline() -> None:
 
 
 async def test_empty_query_rejected_structured() -> None:
-    mcp = create_mcp_server(Settings(search_provider="fake"), pipeline=_offline_pipeline())
+    mcp = create_mcp_server(Settings(), pipeline=_offline_pipeline())
     out = await _call_tool(mcp, "research", {"query": "   "})
     assert out["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
 
 
 async def test_invalid_mode_rejected_structured() -> None:
-    mcp = create_mcp_server(Settings(search_provider="fake"), pipeline=_offline_pipeline())
+    mcp = create_mcp_server(Settings(), pipeline=_offline_pipeline())
     out = await _call_tool(mcp, "research", {"query": "q", "mode": "telepathy"})
     assert out["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
 
 
 async def test_baseline_mode_executes() -> None:
-    mcp = create_mcp_server(Settings(search_provider="fake"), pipeline=_offline_pipeline())
+    mcp = create_mcp_server(Settings(), pipeline=_offline_pipeline())
     out = await _call_tool(mcp, "research", {"query": "q", "mode": "baseline"})
     assert "error" not in out
     assert out["metadata"]["mode"] == "baseline"
 
 
 async def test_missing_jev_key_returns_configuration_error() -> None:
-    settings = Settings(search_provider="fake")
+    settings = Settings()
     pipeline = ResearchPipeline(
         settings,
         search=FakeSearchProvider([{"title": "t", "url": "https://example.com/a", "snippet": "s"}]),
@@ -134,19 +134,32 @@ async def test_missing_jev_key_returns_configuration_error() -> None:
     assert out["error"]["code"] == ErrorCode.CONFIGURATION_ERROR.value
 
 
-def test_build_pipeline_fake_needs_no_keys() -> None:
-    settings = Settings(search_provider="fake")
-    pipe = build_pipeline(settings, jev=FakeDecisionProvider())
+def test_build_pipeline_accepts_injected_providers() -> None:
+    settings = Settings()
+    pipe = build_pipeline(
+        settings,
+        search=FakeSearchProvider([{"title": "t", "url": "https://example.com/a", "snippet": "s"}]),
+        fetch=DictFetch({"https://example.com/a": DOC_HTML}),
+        jev=FakeDecisionProvider(),
+    )
     assert isinstance(pipe, ResearchPipeline)
 
 
+def test_build_pipeline_rejects_unknown_provider() -> None:
+    settings = Settings()
+    settings.search_provider = "bogus"  # type: ignore[assignment]
+    with pytest.raises(EvidenceError) as exc_info:
+        build_pipeline(settings)
+    assert exc_info.value.code == ErrorCode.CONFIGURATION_ERROR
+
+
 def test_server_starts_without_keys() -> None:
-    mcp = create_mcp_server(Settings(search_provider="brave"))
+    mcp = create_mcp_server(Settings())
     assert mcp is not None
     assert mcp.name == "jev-evidence"
 
 
 async def test_missing_keys_return_structured_error_not_crash() -> None:
-    mcp = create_mcp_server(Settings(search_provider="brave"))
+    mcp = create_mcp_server(Settings())
     out = await _call_tool(mcp, "research", {"query": "q", "mode": "baseline"})
     assert out["error"]["code"] == ErrorCode.CONFIGURATION_ERROR.value

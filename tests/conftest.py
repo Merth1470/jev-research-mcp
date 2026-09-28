@@ -48,5 +48,9 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "MAX_SOURCES",
         "MAX_EVIDENCE_TOKENS",
         "LOG_LEVEL",
+        "ENABLE_UI",
+        "UI_HOST",
+        "UI_PORT",
+        "UI_OPEN_BROWSER",
     ):
         monkeypatch.delenv(name, raising=False)

@@ -4,11 +4,13 @@ Stdlib-only (no new dependencies): a small ``ThreadingHTTPServer`` that serves
 a single static page (``ui/index.html``) plus three JSON endpoints:
 
 - ``GET /api/status`` — config snapshot + whether live keys are present.
-- ``GET /api/demo`` — offline baseline-vs-JEV comparison on bundled fixtures.
-- ``POST /api/research`` — run the real pipeline (or the offline demo stack
-  when keys are missing) and return sources + metadata + an optional
-  baseline comparison so the UI can draw the "context cut" funnel.
+- ``GET /api/config`` — editable settings (booleans for secrets, never values).
+- ``POST /api/config`` — update settings live and persist them to ``.env``.
+- ``POST /api/research`` — run the live pipeline and return sources +
+  metadata + a baseline comparison so the UI can draw the "context cut" funnel.
 
+Live data only: without API keys the endpoints return structured
+configuration errors and the UI points at the Configuration section.
 The dashboard is started in a daemon thread by ``__main__`` so
 ``python -m jev_evidence_mcp`` serves both MCP-over-stdio (stdout) and the
 dashboard (localhost HTTP). All dashboard logs go to stderr / logging so
@@ -66,16 +68,19 @@ _KEY_FIELDS: dict[str, str] = {
 }
 
 
+def _is_ready(settings: Any) -> bool:
+    """True when both live keys are present (search + JEV)."""
+    return bool(settings.brave_api_key) and bool(settings.typesafe_api_key)
+
+
 def _public_config(settings: Any) -> dict[str, Any]:
     """Config snapshot safe for the browser: booleans for secrets, never values."""
-    has_jev = bool(settings.typesafe_api_key)
-    has_search = settings.search_provider == "fake" or bool(settings.brave_api_key)
     return {
         "search_provider": settings.search_provider,
         "typesafe_model": settings.typesafe_model,
         "brave_configured": bool(settings.brave_api_key),
-        "typesafe_configured": has_jev,
-        "demo_mode": not (has_search and has_jev),
+        "typesafe_configured": bool(settings.typesafe_api_key),
+        "ready": _is_ready(settings),
         "max_search_results": settings.max_search_results,
         "max_sources": settings.max_sources,
         "max_evidence_tokens": settings.max_evidence_tokens,
@@ -118,31 +123,6 @@ def _persist_env_file(env_path: Path, entries: dict[str, str]) -> bool:
         return False
 
 
-def _demo_scores() -> dict[tuple[str, str], float]:
-    """Fake JEV scores mirroring benchmark fixtures: every 3rd doc is noise."""
-    scores: dict[tuple[str, str], float] = {}
-    for i in range(12):
-        relevant = (i % 3) != 1
-        for prop in ("relevant", "useful", "authoritative"):
-            scores[(f"r{i}", prop)] = 0.92 if relevant else 0.08
-    return scores
-
-
-def _resolve_pipeline(settings: Any, mode: str) -> tuple[Any, bool]:
-    """Return (pipeline, demo_mode). Demo stack when live keys are missing."""
-    has_jev_key = bool(getattr(settings, "typesafe_api_key", ""))
-    provider = getattr(settings, "search_provider", "brave")
-    has_search = provider == "fake" or bool(getattr(settings, "brave_api_key", ""))
-    if has_search and (mode == "baseline" or has_jev_key):
-        from .server import build_pipeline
-
-        return build_pipeline(settings), False
-    from .benchmark.bench import build_offline_stack
-
-    pipe, _, _, _ = build_offline_stack(settings, jev_scores=_demo_scores())
-    return pipe, True
-
-
 def _run_research(
     settings: Any,
     query: str,
@@ -150,7 +130,9 @@ def _run_research(
     max_tokens: int | None,
     mode: str,
 ) -> dict[str, Any]:
-    pipe, demo = _resolve_pipeline(settings, mode)
+    from .server import build_pipeline
+
+    pipe = build_pipeline(settings)
     kwargs: dict[str, Any] = {
         "max_sources": max_sources,
         "max_evidence_tokens": max_tokens,
@@ -158,10 +140,9 @@ def _run_research(
     }
     result = asyncio.run(pipe.run(query, **kwargs))
     payload: dict[str, Any] = result.model_dump()
-    payload["demo_mode"] = demo
     # For jev runs, also run baseline once (cached fetches make it cheap) so
     # the UI can show tokens-before vs tokens-after.
-    if mode == "jev" and not demo:
+    if mode == "jev":
         try:
             base_kwargs = dict(kwargs, mode="baseline")
             base = asyncio.run(pipe.run(query, **base_kwargs))
@@ -206,6 +187,21 @@ class _Handler(BaseHTTPRequestHandler):
         msg = f"Unknown path {path}"
         self._send_json({"error": {"code": "not_found", "message": msg}}, 404)
 
+    def _read_json_body(self) -> dict[str, Any] | None:
+        length = int(self.headers.get("Content-Length") or 0)
+        if length > 65536:
+            err = {"error": {"code": "validation_error", "message": "Body too large."}}
+            self._send_json(err, 400)
+            return None
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            data = json.loads(raw.decode("utf-8") or "{}")
+        except (ValueError, UnicodeDecodeError):
+            err = {"error": {"code": "validation_error", "message": "Invalid JSON."}}
+            self._send_json(err, 400)
+            return None
+        return data if isinstance(data, dict) else {}
+
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path in ("/", "/index.html"):
@@ -213,9 +209,6 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/status":
             self._handle_status()
-            return
-        if path == "/api/demo":
-            self._handle_demo()
             return
         if path == "/api/config":
             self._handle_config()
@@ -225,36 +218,16 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/api/config":
-            length = int(self.headers.get("Content-Length") or 0)
-            if length > 65536:
-                err = {"error": {"code": "validation_error", "message": "Body too large."}}
-                self._send_json(err, 400)
-                return
-            raw = self.rfile.read(length) if length else b"{}"
-            try:
-                data = json.loads(raw.decode("utf-8") or "{}")
-            except (ValueError, UnicodeDecodeError):
-                err = {"error": {"code": "validation_error", "message": "Invalid JSON."}}
-                self._send_json(err, 400)
-                return
-            self._handle_config_update(data if isinstance(data, dict) else {})
+            data = self._read_json_body()
+            if data is not None:
+                self._handle_config_update(data)
             return
         if path != "/api/research":
             self._not_found(path)
             return
-        length = int(self.headers.get("Content-Length") or 0)
-        if length > 65536:
-            err = {"error": {"code": "validation_error", "message": "Body too large."}}
-            self._send_json(err, 400)
-            return
-        raw = self.rfile.read(length) if length else b"{}"
-        try:
-            data = json.loads(raw.decode("utf-8") or "{}")
-        except (ValueError, UnicodeDecodeError):
-            err = {"error": {"code": "validation_error", "message": "Invalid JSON."}}
-            self._send_json(err, 400)
-            return
-        self._handle_research(data if isinstance(data, dict) else {})
+        data = self._read_json_body()
+        if data is not None:
+            self._handle_research(data)
 
     def _settings(self) -> Any:
         server_settings = getattr(self.server, "jev_settings", None)
@@ -273,17 +246,15 @@ class _Handler(BaseHTTPRequestHandler):
             err = {"error": {"code": "configuration_error", "message": str(exc)}}
             self._send_json(err, 500)
             return
-        has_jev = bool(settings.typesafe_api_key)
-        has_search = settings.search_provider == "fake" or bool(settings.brave_api_key)
         res_t = f"{settings.result_relevant_threshold}/{settings.result_useful_threshold}"
         blk_t = f"{settings.block_relevant_threshold}/{settings.block_actionable_threshold}"
         self._send_json(
             {
                 "version": __version__,
                 "search_provider": settings.search_provider,
-                "jev_configured": has_jev,
-                "search_configured": has_search,
-                "demo_mode": not (has_search and has_jev),
+                "jev_configured": bool(settings.typesafe_api_key),
+                "search_configured": bool(settings.brave_api_key),
+                "ready": _is_ready(settings),
                 "result_threshold": res_t,
                 "block_threshold": blk_t,
                 "max_sources": settings.max_sources,
@@ -359,19 +330,6 @@ class _Handler(BaseHTTPRequestHandler):
                 else "Updated for this session; .env write failed (see logs).",
             }
         )
-
-    def _handle_demo(self) -> None:
-        try:
-            from .benchmark.bench import compare
-            from .config import Settings
-
-            settings = Settings(search_provider="fake")  # type: ignore[arg-type]
-            report = asyncio.run(compare("How do I bound concurrent fetches?", settings))
-            self._send_json(report)
-        except Exception as exc:
-            logger.warning("demo failed: %s", exc)
-            err = {"error": {"code": "internal_error", "message": str(exc)}}
-            self._send_json(err, 500)
 
     def _handle_research(self, data: dict[str, Any]) -> None:
         query = str(data.get("query", "") or "")
