@@ -1,10 +1,10 @@
 {
-  "//": "Example MCP client configuration. Replace /path/to/jev-evidence-mcp with your local checkout. Never commit real API keys.",
+  "//": "Example MCP client configuration. Replace /path/to/jev-research-mcp with your local checkout. Never commit real API keys.",
   "mcpServers": {
-    "jev-evidence": {
+    "jev-research": {
       "command": "python",
-      "args": ["-m", "jev_evidence_mcp"],
-      "cwd": "/path/to/jev-evidence-mcp",
+      "args": ["-m", "jev_research_mcp"],
+      "cwd": "/path/to/jev-research-mcp",
       "env": {
         "TYPESAFE_API_KEY": "YOUR_TYPESAFE_API_KEY",
         "SEARCH_PROVIDER": "brave",

@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from jev_evidence_mcp.config import Settings
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.pipeline import ResearchPipeline
-from jev_evidence_mcp.server import build_pipeline, create_mcp_server
+from jev_research_mcp.config import Settings
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.pipeline import ResearchPipeline
+from jev_research_mcp.server import build_pipeline, create_mcp_server
 from tests.conftest import DOC_HTML
 from tests.helpers import DictFetch, FakeDecisionProvider, FakeSearchProvider
 
@@ -73,7 +73,7 @@ async def _call_tool(mcp: Any, name: str, args: dict[str, Any]) -> dict[str, Any
 def test_server_starts_and_advertises_research_tool() -> None:
     mcp = create_mcp_server(Settings(), pipeline=_offline_pipeline())
     assert mcp is not None
-    assert mcp.name == "jev-evidence"
+    assert mcp.name == "jev-research"
 
 
 async def test_tool_schema_valid() -> None:
@@ -156,7 +156,7 @@ def test_build_pipeline_rejects_unknown_provider() -> None:
 def test_server_starts_without_keys() -> None:
     mcp = create_mcp_server(Settings())
     assert mcp is not None
-    assert mcp.name == "jev-evidence"
+    assert mcp.name == "jev-research"
 
 
 async def test_missing_keys_return_structured_error_not_crash() -> None:

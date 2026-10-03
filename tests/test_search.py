@@ -10,9 +10,9 @@ from typing import Any
 import httpx
 import pytest
 
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.search.base import normalize_domain, normalize_search_result
-from jev_evidence_mcp.search.brave import BraveSearchProvider
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.search.base import normalize_domain, normalize_search_result
+from jev_research_mcp.search.brave import BraveSearchProvider
 from tests.helpers import FakeSearchProvider, make_fixture_results
 
 

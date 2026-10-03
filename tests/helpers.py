@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.fetch.fetcher import FetchedPage
-from jev_evidence_mcp.jev.interface import Decision, DecisionResult
-from jev_evidence_mcp.models import SearchResult
-from jev_evidence_mcp.search.base import normalize_search_result
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.fetch.fetcher import FetchedPage
+from jev_research_mcp.jev.interface import Decision, DecisionResult
+from jev_research_mcp.models import SearchResult
+from jev_research_mcp.search.base import normalize_search_result
 
 
 class FakeDecisionProvider:

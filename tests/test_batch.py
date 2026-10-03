@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jev_evidence_mcp.batch import batch_list, batched_with_ids
+from jev_research_mcp.batch import batch_list, batched_with_ids
 
 
 def test_batch_list_even_split() -> None:

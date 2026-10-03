@@ -76,7 +76,7 @@ function TopBar({ frame }: { frame: number }) {
       <div style={{ ...FONT, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ color: TEXT, fontSize: 30, fontWeight: 850, letterSpacing: 1 }}>
           save<span style={{ color: GREEN }}>maxxing</span>
-          <span style={{ color: MUTED, fontWeight: 500, fontSize: 22 }}> &nbsp;•&nbsp; JEV Evidence MCP</span>
+          <span style={{ color: MUTED, fontWeight: 500, fontSize: 22 }}> &nbsp;•&nbsp; JEV Research MCP</span>
         </div>
         <div style={{ color: MUTED, fontSize: 24, fontWeight: 600 }}>
           {String(Math.floor(frame / 30)).padStart(2, "0")}s / 60s
@@ -191,7 +191,7 @@ function SceneIntro() {
       <div style={{ textAlign: "center", opacity: s, transform: `translateY(${interpolate(s, [0, 1], [50, 0])}px)` }}>
         <Pill>SAVEMAXXING • LAUNCH</Pill>
         <div style={{ height: 20 }} />
-        <div style={{ color: TEXT, fontSize: 96, fontWeight: 900, letterSpacing: -3 }}>JEV Evidence MCP</div>
+        <div style={{ color: TEXT, fontSize: 96, fontWeight: 900, letterSpacing: -3 }}>JEV Research MCP</div>
         <div style={{ color: MUTED, fontSize: 34, marginTop: 10 }}>
           One MCP tool that filters web research <span style={{ color: GREEN, fontWeight: 800 }}>before it hits your model</span>
         </div>
@@ -375,7 +375,7 @@ function SceneCTA() {
           </div>
         </div>
         <div style={{ color: MUTED, fontSize: 30, marginTop: 24 }}>
-          python -m jev_evidence_mcp &nbsp;•&nbsp; MCP: <span style={{ color: TEXT }}>jev-evidence / research</span> &nbsp;•&nbsp; dashboard :8765
+          python -m jev_research_mcp &nbsp;•&nbsp; MCP: <span style={{ color: TEXT }}>jev-research / research</span> &nbsp;•&nbsp; dashboard :8765
         </div>
       </div>
     </AbsoluteFill>
@@ -394,7 +394,7 @@ export function SavemaxxingVideo() {
       {frame >= 1410 ? <SceneCTA /> : null}
       <TopBar frame={frame} />
       <div style={{ position: "absolute", bottom: 28, left: 0, right: 0, textAlign: "center", ...FONT, color: "rgba(154,163,178,0.9)", fontSize: 22, fontWeight: 600, letterSpacing: 1 }}>
-        savemaxxing • JEV Evidence MCP • self-hosted • silent cut — add music / voiceover on publish
+        savemaxxing • JEV Research MCP • self-hosted • silent cut — add music / voiceover on publish
       </div>
     </AbsoluteFill>
   );

@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(
 
 
 async def test_live_jev_small_decision() -> None:
-    from jev_evidence_mcp.jev.sdk_provider import SdkDecisionProvider
+    from jev_research_mcp.jev.sdk_provider import SdkDecisionProvider
 
     provider = SdkDecisionProvider(api_key=os.environ["TYPESAFE_API_KEY"])
     result = await provider.decide_questions(

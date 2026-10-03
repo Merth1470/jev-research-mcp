@@ -5,8 +5,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.fetch.fetcher import HttpxFetchProvider
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.fetch.fetcher import HttpxFetchProvider
 
 HTML = b"<html><head><title>T</title></head><body><p>Hello</p></body></html>"
 

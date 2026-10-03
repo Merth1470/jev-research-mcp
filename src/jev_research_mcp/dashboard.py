@@ -1,4 +1,4 @@
-"""Local visualization dashboard for the JEV evidence pipeline.
+"""Local visualization dashboard for the JEV research pipeline.
 
 Stdlib-only (no new dependencies): a small ``ThreadingHTTPServer`` that serves
 a single static page (``ui/index.html``) plus three JSON endpoints:
@@ -12,7 +12,7 @@ a single static page (``ui/index.html``) plus three JSON endpoints:
 Live data only: without API keys the endpoints return structured
 configuration errors and the UI points at the Configuration section.
 The dashboard is started in a daemon thread by ``__main__`` so
-``python -m jev_evidence_mcp`` serves both MCP-over-stdio (stdout) and the
+``python -m jev_research_mcp`` serves both MCP-over-stdio (stdout) and the
 dashboard (localhost HTTP). All dashboard logs go to stderr / logging so
 stdout stays clean for the MCP protocol.
 """
@@ -29,13 +29,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("jev_evidence_mcp.dashboard")
+logger = logging.getLogger("jev_research_mcp.dashboard")
 
 _UI_DIR = Path(__file__).parent / "ui"
 _INDEX = _UI_DIR / "index.html"
 
 _FALLBACK_HTML = """<!doctype html><title>JEV dashboard</title>
-<h1>JEV Evidence MCP</h1><p>Static UI file missing; API live at /api/status.</p>
+<h1>JEV Research MCP</h1><p>Static UI file missing; API live at /api/status.</p>
 """
 
 

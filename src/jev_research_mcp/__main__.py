@@ -1,4 +1,4 @@
-"""CLI entrypoint: ``python -m jev_evidence_mcp`` runs MCP-over-stdio + local dashboard."""
+"""CLI entrypoint: ``python -m jev_research_mcp`` runs MCP-over-stdio + local dashboard."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ except ImportError:  # pragma: no cover - optional convenience
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    desc = "JEV Evidence MCP server + local dashboard."
+    desc = "JEV Research MCP server + local dashboard."
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("--no-ui", action="store_true", help="Disable localhost dashboard.")
     parser.add_argument("--ui-host", default=None, help="Dashboard host (default UI_HOST).")
@@ -73,7 +73,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
                     webbrowser.open(dashboard_url)
                 except Exception as exc:  # never crash the server over a browser
-                    logging.getLogger("jev_evidence_mcp").debug("open browser failed: %s", exc)
+                    logging.getLogger("jev_research_mcp").debug("open browser failed: %s", exc)
         except OSError as exc:
             print(f"Dashboard unavailable (port in use?): {exc}", file=sys.stderr)
         except Exception as exc:  # dashboard must never kill the MCP server

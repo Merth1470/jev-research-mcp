@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from jev_evidence_mcp.cache import MemoryCache
+from jev_research_mcp.cache import MemoryCache
 
 
 def test_put_get_roundtrip() -> None:

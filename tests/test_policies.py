@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from jev_evidence_mcp.jev.interface import Decision, DecisionResult
-from jev_evidence_mcp.models import Block, BlockType, SearchResult
-from jev_evidence_mcp.policy.blocks import kept_blocks, select_blocks
-from jev_evidence_mcp.policy.results import kept_results, select_results
+from jev_research_mcp.jev.interface import Decision, DecisionResult
+from jev_research_mcp.models import Block, BlockType, SearchResult
+from jev_research_mcp.policy.blocks import kept_blocks, select_blocks
+from jev_research_mcp.policy.results import kept_results, select_results
 
 
 def _result(id_: str) -> SearchResult:

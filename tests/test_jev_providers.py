@@ -9,10 +9,10 @@ from typing import Any
 import httpx
 import pytest
 
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.jev.http_provider import HttpDecisionProvider
-from jev_evidence_mcp.jev.interface import DecisionResult
-from jev_evidence_mcp.jev.sdk_provider import SdkDecisionProvider, _map_sdk_error
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.jev.http_provider import HttpDecisionProvider
+from jev_research_mcp.jev.interface import DecisionResult
+from jev_research_mcp.jev.sdk_provider import SdkDecisionProvider, _map_sdk_error
 
 QUESTIONS = {
     "relevant__r0": {"type": "noul", "instructions": "Relevant?"},

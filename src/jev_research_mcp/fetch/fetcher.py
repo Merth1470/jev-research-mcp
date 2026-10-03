@@ -98,7 +98,7 @@ class HttpxFetchProvider:
         current = await self._check(original)
 
         headers = {
-            "User-Agent": "jev-evidence-mcp/0.1 (+local-research)",
+            "User-Agent": "jev-research-mcp/0.1 (+local-research)",
             "Accept": "text/html,*/*",
         }
         redirects = 0

@@ -11,9 +11,9 @@ import os
 
 import pytest
 
-from jev_evidence_mcp.benchmark.bench import _report_with_cases, compare
-from jev_evidence_mcp.config import Settings
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.benchmark.bench import _report_with_cases, compare
+from jev_research_mcp.config import Settings
+from jev_research_mcp.errors import ErrorCode, EvidenceError
 
 _LIVE = bool(os.environ.get("TYPESAFE_API_KEY") or os.environ.get("JEV_API_KEY")) and bool(
     os.environ.get("BRAVE_API_KEY") or os.environ.get("SEARCH_API_KEY")
@@ -30,7 +30,7 @@ def test_compare_requires_live_keys(clean_env: None) -> None:
 
 
 def test_report_math_is_honest() -> None:
-    from jev_evidence_mcp.benchmark.bench import BenchmarkCase
+    from jev_research_mcp.benchmark.bench import BenchmarkCase
 
     base = BenchmarkCase(
         name="baseline",
@@ -65,7 +65,7 @@ def test_report_math_is_honest() -> None:
 
 @pytest.mark.skipif(not _LIVE, reason="needs TYPESAFE_API_KEY and BRAVE_API_KEY")
 async def test_compare_baseline_vs_jev_live() -> None:
-    from jev_evidence_mcp.config import load_settings
+    from jev_research_mcp.config import load_settings
 
     settings = load_settings()
     report = await compare("How do I bound concurrent fetches?", settings)

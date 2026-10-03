@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jev_evidence_mcp.jev.questions import (
+from jev_research_mcp.jev.questions import (
     BLOCK_PROPERTIES,
     RESULT_PROPERTIES,
     build_block_questions,
@@ -10,7 +10,7 @@ from jev_evidence_mcp.jev.questions import (
     build_result_questions,
     build_result_state,
 )
-from jev_evidence_mcp.models import Block, BlockType, SearchResult
+from jev_research_mcp.models import Block, BlockType, SearchResult
 
 
 def _results(n: int = 3) -> list[SearchResult]:
@@ -47,7 +47,7 @@ def test_result_questions_one_per_property_per_candidate() -> None:
 
 
 def test_result_contracts_are_explicit_not_vague() -> None:
-    from jev_evidence_mcp.jev.questions import RESULT_QUESTIONS
+    from jev_research_mcp.jev.questions import RESULT_QUESTIONS
 
     for prop, text in RESULT_QUESTIONS.items():
         assert len(text) > 40, prop

@@ -22,7 +22,7 @@ from .jev.sdk_provider import SdkDecisionProvider
 from .pipeline import ResearchPipeline
 from .search.brave import BraveSearchProvider
 
-logger = logging.getLogger("jev_evidence_mcp")
+logger = logging.getLogger("jev_research_mcp")
 
 
 def _load_mcp_class() -> Any:
@@ -105,7 +105,7 @@ def create_mcp_server(
     # starts even when keys are missing; misconfiguration is then reported as
     # a structured tool error instead of a startup crash.
     server_cls = _load_mcp_class()
-    mcp = server_cls("jev-evidence")
+    mcp = server_cls("jev-research")
 
     @mcp.tool()
     async def research(

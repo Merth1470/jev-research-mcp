@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import pytest
 
-from jev_evidence_mcp.config import Settings
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.pipeline import ResearchPipeline
+from jev_research_mcp.config import Settings
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.pipeline import ResearchPipeline
 from tests.conftest import DOC_HTML
 from tests.helpers import DictFetch, FakeDecisionProvider, FakeSearchProvider
 

@@ -6,8 +6,8 @@ import socket
 
 import pytest
 
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.security.ssrf import assert_url_public, validate_url_syntax
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.security.ssrf import assert_url_public, validate_url_syntax
 
 
 @pytest.mark.parametrize(

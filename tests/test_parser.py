@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from jev_evidence_mcp.models import BlockType
-from jev_evidence_mcp.parse.parser import parse_html_to_document
+from jev_research_mcp.models import BlockType
+from jev_research_mcp.parse.parser import parse_html_to_document
 
 
 def test_noise_removed_content_kept(doc_html: str) -> None:

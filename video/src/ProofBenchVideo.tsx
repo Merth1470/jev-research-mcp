@@ -63,7 +63,7 @@ function TopRule({ frame }: { frame: number }) {
     <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "30px 72px 0 72px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 24, letterSpacing: 2.5, color: INK }}>
-          JEV EVIDENCE <span style={{ color: INK_SOFT, fontWeight: 400 }}>— PROOF · 60s</span>
+          JEV RESEARCH <span style={{ color: INK_SOFT, fontWeight: 400 }}>— PROOF · 60s</span>
         </div>
         <div style={{ fontFamily: MONO, fontSize: 24, color: INK, fontVariantNumeric: "tabular-nums" }}>
           {String(Math.floor(frame / 30)).padStart(2, "0")}s / 60s
@@ -488,7 +488,7 @@ function SceneTool() {
             );
           })}
           <div style={{ fontFamily: MONO, fontSize: 24, color: INK, marginTop: 6 }}>
-            MCP stdio · <span style={{ fontWeight: 700 }}>jev-evidence / research</span> · dashboard :8765
+            MCP stdio · <span style={{ fontWeight: 700 }}>jev-research / research</span> · dashboard :8765
           </div>
         </div>
       </div>
@@ -684,7 +684,7 @@ function SceneBind() {
           <Stamp label="START PROOFING" progress={stampP} rotate={-3} />
         </div>
         <div style={{ fontFamily: MONO, fontSize: 26, color: INK, marginTop: 26 }}>
-          python -m jev_evidence_mcp · jev-evidence / research
+          python -m jev_research_mcp · jev-research / research
         </div>
       </div>
     </AbsoluteFill>

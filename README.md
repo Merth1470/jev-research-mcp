@@ -1,4 +1,4 @@
-# JEV Evidence MCP
+# JEV Research MCP
 
 A self-hosted, open-source MCP server that uses **TypeSafe JEV** as a semantic
 evidence-selection layer for coding-agent web research.
@@ -70,7 +70,7 @@ duplicate/unexpected answers) before the policy layer reads it.
 
 ## 4. How it works
 
-1. **Search** (`src/jev_evidence_mcp/search/`): Brave provider returns
+1. **Search** (`src/jev_research_mcp/search/`): Brave provider returns
    normalized candidates (URL/title/snippet/domain). Malformed rows are
    rejected structurally, never semantically.
 2. **Result filtering** (`jev/questions.py` + `policy/results.py`): one
@@ -102,8 +102,8 @@ duplicate/unexpected answers) before the policy layer reads it.
 Requires Python ≥ 3.10.
 
 ```bash
-git clone <your-fork-url> jev-evidence-mcp
-cd jev-evidence-mcp
+git clone <your-fork-url> jev-research-mcp
+cd jev-research-mcp
 pip install -e ".[dev]"   # runtime + dev tools (or pip install -e . for runtime only)
 cp .env.example .env      # then fill in your own keys (never commit .env)
 ```
@@ -153,19 +153,19 @@ value is validated on load; errors name the variable without echoing secrets.
 Stdio transport (V1 supports stdio only):
 
 ```bash
-python -m jev_evidence_mcp
+python -m jev_research_mcp
 ```
 
 Example client config — see [`examples/mcp_config.json`](examples/mcp_config.json)
-(replace `/path/to/jev-evidence-mcp` with your checkout; keys are yours):
+(replace `/path/to/jev-research-mcp` with your checkout; keys are yours):
 
 ```json
 {
   "mcpServers": {
-    "jev-evidence": {
+    "jev-research": {
       "command": "python",
-      "args": ["-m", "jev_evidence_mcp"],
-      "cwd": "/path/to/jev-evidence-mcp",
+      "args": ["-m", "jev_research_mcp"],
+      "cwd": "/path/to/jev-research-mcp",
       "env": {
         "TYPESAFE_API_KEY": "YOUR_TYPESAFE_API_KEY",
         "SEARCH_PROVIDER": "brave",
@@ -191,14 +191,14 @@ Works with MCP Python SDK v1 (`FastMCP`) and v2 (`MCPServer`).
 
 ### 7a. Local dashboard (visualize the context cut)
 
-`python -m jev_evidence_mcp` also starts a localhost dashboard (stdout stays
+`python -m jev_research_mcp` also starts a localhost dashboard (stdout stays
 clean for MCP; the URL is printed to stderr):
 
 ```bash
-python -m jev_evidence_mcp                # MCP stdio + dashboard at http://localhost:8765
-python -m jev_evidence_mcp --ui-only      # dashboard only (preview the UI)
-python -m jev_evidence_mcp --no-ui        # MCP stdio only
-python -m jev_evidence_mcp --ui-port 8899 --open-browser
+python -m jev_research_mcp                # MCP stdio + dashboard at http://localhost:8765
+python -m jev_research_mcp --ui-only      # dashboard only (preview the UI)
+python -m jev_research_mcp --no-ui        # MCP stdio only
+python -m jev_research_mcp --ui-port 8899 --open-browser
 ```
 
 The page shows the 6 pipeline stages, a live query box, and a kept-vs-cut
@@ -272,7 +272,7 @@ vague "is this good?" prompts.
 Live benchmark (requires both API keys — it measures real evidence selection):
 
 ```bash
-python -m jev_evidence_mcp.benchmark.bench --out benchmark_outputs/latest.json
+python -m jev_research_mcp.benchmark.bench --out benchmark_outputs/latest.json
 ```
 
 ## 11. Privacy model
@@ -327,7 +327,7 @@ Live checks (`test_live_smoke`, benchmark comparison) skip without keys.
 
 ## 14. Benchmarking
 
-`python -m jev_evidence_mcp.benchmark.bench` compares `baseline` (no JEV)
+`python -m jev_research_mcp.benchmark.bench` compares `baseline` (no JEV)
 vs `jev` on identical live queries and writes JSON with date, model, config,
 thresholds, and per-mode measurements (results, fetches, blocks
 before/after, approx tokens, latency, JEV requests/tokens). It requires

@@ -35,7 +35,7 @@ from .policy.blocks import kept_blocks, select_blocks
 from .policy.results import kept_results, select_results
 from .search.base import SearchProvider
 
-logger = logging.getLogger("jev_evidence_mcp")
+logger = logging.getLogger("jev_research_mcp")
 
 Mode = Literal["jev", "baseline"]
 

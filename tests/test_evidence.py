@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from jev_evidence_mcp.evidence.assemble import (
+from jev_research_mcp.evidence.assemble import (
     assemble_evidence,
     format_block,
     source_authority_score,
 )
-from jev_evidence_mcp.evidence.dedup import content_hash, deduplicate, normalize_for_hash
-from jev_evidence_mcp.evidence.tokens import estimate_tokens, fits_in_budget
-from jev_evidence_mcp.jev.retry import backoff_delay_seconds
-from jev_evidence_mcp.models import Block, BlockType, ParsedDocument
+from jev_research_mcp.evidence.dedup import content_hash, deduplicate, normalize_for_hash
+from jev_research_mcp.evidence.tokens import estimate_tokens, fits_in_budget
+from jev_research_mcp.jev.retry import backoff_delay_seconds
+from jev_research_mcp.models import Block, BlockType, ParsedDocument
 
 
 def test_normalize_for_hash_ignores_whitespace_case() -> None:

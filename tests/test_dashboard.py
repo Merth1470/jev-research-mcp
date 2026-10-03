@@ -20,8 +20,8 @@ from typing import Any
 
 import pytest
 
-from jev_evidence_mcp.config import Settings, load_settings
-from jev_evidence_mcp.dashboard import create_server
+from jev_research_mcp.config import Settings, load_settings
+from jev_research_mcp.dashboard import create_server
 
 _CONFIG_ENV_VARS = (
     "SEARCH_PROVIDER",
@@ -133,7 +133,7 @@ def test_status_reports_ready_with_keys(tmp_path: Path) -> None:
 def test_index_serves_html(server: ThreadingHTTPServer) -> None:
     status, body = _get(server, "/")
     assert status == 200
-    assert "JEV Evidence MCP" in body
+    assert "JEV Research MCP" in body
     assert "api/research" in body
     assert "demo" not in body.lower()  # live data only, no placeholder content
 

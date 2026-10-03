@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jev_evidence_mcp.config import Settings, load_settings
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.config import Settings, load_settings
+from jev_research_mcp.errors import ErrorCode, EvidenceError
 
 
 def test_defaults_are_safe(clean_env: None) -> None:

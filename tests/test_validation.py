@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jev_evidence_mcp.errors import ErrorCode, EvidenceError
-from jev_evidence_mcp.jev.validation import validate_decisions
+from jev_research_mcp.errors import ErrorCode, EvidenceError
+from jev_research_mcp.jev.validation import validate_decisions
 
 EXPECTED = {"relevant__r0", "useful__r0"}
 META = {"relevant__r0": "relevant__r0", "useful__r0": "useful__r0"}
