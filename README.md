@@ -1,3 +1,5 @@
+![jev-evidence](assets/jev-evidence.jpg)
+
 # JEV Research MCP
 
 A self-hosted, open-source MCP server that uses **TypeSafe JEV** as a semantic
