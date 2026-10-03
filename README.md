@@ -2,6 +2,8 @@
 
 # JEV Research MCP
 
+<a href="https://www.producthunt.com/products/jev-research-mcp?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-jev-research-mcp" target="_blank" rel="noopener noreferrer"><img alt="jev-research-mcp - JEV Evidence MCP: Semantic web research for coding agents. | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1268821&amp;theme=light&amp;t=1791054350562"></a>
+
 A self-hosted, open-source MCP server that uses **TypeSafe JEV** as a semantic
 evidence-selection layer for coding-agent web research.
 
