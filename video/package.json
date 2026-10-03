@@ -1,0 +1,27 @@
+{
+  "name": "proofbench-launch-video",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "remotion render src/index.ts proofbench out/proofbench-launch.mp4 --overwrite",
+    "preview": "remotion studio src/index.ts",
+    "still:hook": "remotion still src/index.ts proofbench --frame 90 out/still-hook.png --overwrite",
+    "still:line": "remotion still src/index.ts proofbench --frame 900 out/still-line.png --overwrite",
+    "still:bind": "remotion still src/index.ts proofbench --frame 1700 out/still-bind.png --overwrite"
+  },
+  "dependencies": {
+    "@fontsource/anton": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/work-sans": "^5.3.0",
+    "@remotion/cli": "4.0.352",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.352"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "5.6.3"
+  }
+}

@@ -374,7 +374,3 @@ python -m build   # or: pip wheel . --no-deps  (validates packaging)
 Commit discipline: one subsystem per commit (`feat: …`, `test: …`, `docs: …`),
 verified with status/diff/tests/lint/type-check before each commit. No secrets
 in the tree (`.env`, caches, logs, `benchmark_outputs/` are gitignored).
-
-## License
-
-MIT — see [LICENSE](LICENSE).

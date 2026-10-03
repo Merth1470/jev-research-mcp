@@ -22,6 +22,9 @@ benchmark_outputs/
 .cache/
 local_cache/
 
+# Rendered video artifacts (reproducible via `npm run render` in video/)
+video/out/
+
 # Test / tooling
 .pytest_cache/
 .coverage
@@ -38,3 +41,21 @@ Thumbs.db
 
 # Kilo worktrees helper (keep helper ignore, do not commit worktree contents)
 .kilo/worktrees/
+
+# Local agent / tooling (never publish)
+.opencode/
+.impeccable/
+graphify-out/
+opencode.json
+node_modules/
+
+# Internal planning docs (keep local until you decide to publish)
+AGENTS.md
+DESIGN.md
+PRODUCT.md
+Prompt.md
+SKILL.md
+
+# Video dependencies / outputs (source is tracked; render locally via `npm run render` in video/)
+video/node_modules/
+video/package-lock.json
